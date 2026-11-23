@@ -1,0 +1,158 @@
+import { sdkAgentDemo } from "@/content/uk/demos/agent-env";
+
+<TLDR>
+- Власний агент потрібен, коли готовий інструмент (Claude Code, чат) не вбудовується у твій продукт чи процес.
+- Три шляхи: <Term id="messages-api" /> з інструментами (свій цикл), <Term id="agent-sdk" /> (harness Claude Code як бібліотека), <Term id="managed-agents" /> (Anthropic хостить цикл і пісочницю).
+- Почни з найпростішого варіанту, який закриває задачу: часто це один виклик API, а не агент.
+</TLDR>
+
+## Чи потрібен агент взагалі?
+
+Агент — це дорожче й повільніше, ніж один запит до моделі. Перед тим як будувати, чесно відповідай:
+
+- задача **багатокрокова** і її важко розписати заздалегідь?
+- результат **вартий** більших витрат і часу?
+- помилку можна **помітити й виправити** (тести, рев'ю, відкат)?
+
+Якщо хоч одне «ні» — вистачить одного запиту до <Term id="api" /> або простого ланцюжка запитів.
+
+## Три шляхи
+
+| | Messages API + інструменти | Agent SDK | Managed Agents |
+| --- | --- | --- | --- |
+| Хто пише цикл | Ти (або хелпер Tool Runner у SDK) | SDK | Anthropic |
+| Вбудовані інструменти | Немає, лише твої | Файли, Bash, пошук, веб, як у Claude Code | Пісочниця з Bash і файлами + твої інструменти |
+| Де працює | Твій сервер | Твій процес чи сервер | Інфраструктура Anthropic (або власна пісочниця) |
+| Коли брати | Потрібен повний контроль або вузька задача з кількома своїми функціями | Агент для роботи з файлами й кодом у твоєму застосунку | Не хочеш хостити агента сам; довгі сесії, розклад |
+
+<Callout type="tip" title="Чим SDK відрізняється від API">
+Через Messages API ти сам виконуєш інструменти й крутиш цикл. Agent SDK уже містить цикл, інструменти, дозволи, сесії й хуки Claude Code — ти лише ставиш задачу й налаштування.
+</Callout>
+
+## Як це виглядає в коді
+
+**Messages API: свій цикл.** Модель просить виклик інструмента, твій код його виконує й повертає результат, доки модель не скаже «готово»:
+
+```ts
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+const messages: Anthropic.MessageParam[] = [{ role: "user", content: "Який статус замовлення 1842?" }];
+
+while (true) {
+  const res = await client.messages.create({
+    model: "claude-opus-5-5",
+    max_tokens: 16000,
+    tools: [orderStatusTool], // твій опис інструмента
+    messages,
+  });
+  messages.push({ role: "assistant", content: res.content });
+  if (res.stop_reason !== "tool_use") break; // модель відповіла — виходимо
+  messages.push({ role: "user", content: await runTools(res.content) }); // твій код виконує інструменти
+}
+```
+
+**Agent SDK: цикл уже всередині.** Пакет `@anthropic-ai/claude-agent-sdk`, головна функція — `query()`:
+
+```ts
+import { query } from "@anthropic-ai/claude-agent-sdk";
+
+for await (const message of query({
+  prompt: "Review utils.py for bugs that would cause crashes. Fix any issues you find.",
+  options: { allowedTools: ["Read", "Edit", "Glob"], permissionMode: "acceptEdits" },
+})) {
+  if (message.type === "result") console.log(`Done: ${message.subtype}`);
+}
+```
+
+<Demo script={sdkAgentDemo} />
+
+**Managed Agents** (бета): ти один раз створюєш конфігурацію агента (модель, інструкції, інструменти), а потім запускаєш для неї сесії через API. Цикл і пісочниця, де виконуються інструменти, працюють на боці Anthropic.
+
+<Steps items={[
+  { title: "Агент (один раз)", text: "Модель, системний промпт, інструменти — збережена конфігурація з ID." },
+  { title: "Сесія (кожен запуск)", text: "Нова робота для агента: свій контейнер-пісочниця й потік подій." },
+  { title: "Події", text: "Ти надсилаєш повідомлення й результати своїх інструментів, отримуєш хід роботи." },
+]} />
+
+## Як обрати за хвилину
+
+<DoDont
+  dont={["Писати власний цикл, коли потрібен агент для коду з файлами й Bash", "Брати агента для задачі «витягни поля з листа»", "Хостити свій сервер агента, якщо головне — не займатися інфраструктурою"]}
+  doThis={["Agent SDK: готовий harness Claude Code у твоєму застосунку", "Один запит до Messages API зі structured outputs", "Managed Agents: цикл і пісочниця на боці Anthropic"]}
+/>
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "agentenv-own-1",
+      type: "match",
+      question: "З'єднай варіант з тим, хто запускає цикл агента",
+      pairs: [
+        ["Messages API + інструменти", "Твій код"],
+        ["Agent SDK", "Бібліотека у твоєму процесі"],
+        ["Managed Agents", "Інфраструктура Anthropic"],
+      ],
+      explain: "Головна різниця — хто володіє циклом і де виконуються інструменти.",
+    },
+    {
+      id: "agentenv-own-2",
+      type: "single",
+      question: "Застосунок має сам знаходити й виправляти баги у файлах проєкту. Що найпростіше?",
+      options: [
+        { text: "Agent SDK: інструменти для файлів і Bash уже вбудовані", correct: true },
+        { text: "Messages API: самому реалізувати читання, редагування й цикл" },
+        { text: "Один запит до моделі з усім кодом у промпті" },
+        { text: "Чат Claude.ai і копіювання відповіді вручну" },
+      ],
+      explain: "Agent SDK дає той самий harness, що й Claude Code: цикл, файлові інструменти, дозволи — нічого не треба писати з нуля.",
+    },
+    {
+      id: "agentenv-own-3",
+      type: "truefalse",
+      question: "Для задачі «класифікуй відгук як позитивний чи негативний» варто будувати агента з інструментами.",
+      answer: false,
+      explain: "Це один запит до моделі. Агент тільки додасть вартості й затримки.",
+    },
+    {
+      id: "agentenv-own-4",
+      type: "order",
+      question: "Розстав кроки власного циклу на Messages API",
+      items: ["Надіслати повідомлення й опис інструментів", "Модель повертає stop_reason tool_use", "Твій код виконує інструмент", "Додати результат у messages і надіслати знову", "Модель відповідає без виклику — вихід з циклу"],
+      explain: "Цикл крутиться, доки модель просить інструменти; щойно відповідає текстом — готово.",
+    },
+    {
+      id: "agentenv-own-5",
+      type: "multi",
+      question: "Що з цього вже є «з коробки» в Agent SDK?",
+      options: [
+        { text: "Цикл агента", correct: true },
+        { text: "Інструменти для файлів і команд", correct: true },
+        { text: "Дозволи й хуки", correct: true },
+        { text: "Хостинг твого агента на серверах Anthropic" },
+      ],
+      explain: "SDK працює у твоєму процесі. Хостинг циклу на стороні Anthropic — це вже Managed Agents.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "agentenv-own-choice",
+    title: "Обери шлях для трьох задач",
+    prompt: "Для кожної задачі обери варіант (Messages API, Agent SDK або Managed Agents) і поясни чому одним реченням:\n1) щоночі оновлювати залежності в репозиторії й запускати тести, не тримаючи свого сервера;\n2) бот, який відповідає на питання про статус замовлення через одну твою функцію;\n3) внутрішній інструмент, що в твоєму застосунку рефакторить файли проєкту.",
+    starter: "1) агент\n2) агент\n3) агент",
+    placeholder: "1) … — бо …\n2) … — бо …\n3) … — бо …",
+    rules: [
+      { id: "managed", type: "includesAny", values: ["managed"], label: "Згадано Managed Agents", hint: "Для нічних задач без власного сервера підходить Managed Agents." },
+      { id: "api", type: "includesAny", values: ["messages api", "messages-api", "api"], label: "Згадано Messages API", hint: "Для вузької задачі з однією функцією вистачить Messages API з інструментом." },
+      { id: "sdk", type: "includesAny", values: ["agent sdk", "sdk"], label: "Згадано Agent SDK", hint: "Для роботи з файлами у своєму застосунку зручний Agent SDK." },
+      { id: "why", type: "includesAny", values: ["бо ", "тому що", "оскільки", "адже"], label: "Є пояснення «чому»", hint: "Додай коротке пояснення до кожного вибору: «бо …»." },
+      { id: "detail", type: "minWords", value: 25, label: "Відповідь розгорнута (25+ слів)", hint: "Поясни кожен вибір хоча б одним реченням." },
+    ],
+    solution: "1) Managed Agents — бо Anthropic хостить цикл і пісочницю, а запуск можна поставити на розклад без свого сервера.\n2) Messages API з одним інструментом — бо задача вузька: модель викликає get_order_status, а цикл на кілька рядків пишу сам.\n3) Agent SDK — бо в ньому вже є цикл, файлові інструменти й дозволи Claude Code, і він працює в моєму застосунку.",
+  }}
+/>
+
+<Flashcards terms={["agent-sdk", "messages-api", "managed-agents", "harness", "tool-use"]} />

@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# playwright
+/test-results/
+/playwright-report/
+
+# firebase service account keys (secrets)
+*service-account*.json
+*firebase-adminsdk*.json

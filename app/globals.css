@@ -1,26 +1,263 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens. Dark theme is the default; a light theme can later
+ * redefine the same tokens under [data-theme="light"].
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  --bg: #1c1d20;
+  --surface: #25272b;
+  --surface-2: #2d3035;
+  --surface-3: #363a40;
+  --border: #3a3e44;
+  --text: #f6f5f3;
+  --muted: #a8abb2;
+  --accent: #ff8a1f;
+  --accent-strong: #ff6b00;
+  --accent-soft: rgb(255 138 31 / 0.14);
+  --on-accent: #1a1203;
+  --success: #4ade80;
+  --success-soft: rgb(74 222 128 / 0.12);
+  --danger: #ff7a7a;
+  --danger-soft: rgb(255 122 122 / 0.12);
+
+  --shadow-raised: 8px 8px 18px rgb(0 0 0 / 0.45), -6px -6px 16px rgb(255 255 255 / 0.03);
+  --shadow-pressed: inset 4px 4px 10px rgb(0 0 0 / 0.45), inset -3px -3px 8px rgb(255 255 255 / 0.03);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --font-sans: var(--font-manrope), system-ui, sans-serif;
+  --font-display: var(--font-unbounded), var(--font-manrope), system-ui, sans-serif;
+  --font-hand: var(--font-caveat), cursive;
+  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+
+  --shadow-raised: var(--shadow-raised);
+  --shadow-pressed: var(--shadow-pressed);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@layer base {
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: 5rem;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  font-weight: 400;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(1.75rem, 1.3rem + 2vw, 2.6rem);
+}
+
+h2 {
+  font-size: clamp(1.3rem, 1.1rem + 1vw, 1.7rem);
+}
+
+h3 {
+  font-size: 1.2rem;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+}
+
+/* Soft "neumorphic" surfaces from the visual reference. */
+@utility card {
+  background: var(--surface);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-raised);
+}
+
+@utility pressed {
+  background: var(--surface);
+  box-shadow: var(--shadow-pressed);
+}
+
+@utility glow {
+  background: radial-gradient(60% 60% at 50% 0%, rgb(255 138 31 / 0.16), transparent 70%);
+}
+
+@layer components {
+/* Lesson prose (MDX output). Components declare only what differs. */
+.prose {
+  max-width: 68ch;
+}
+
+.prose > * + * {
+  margin-top: 1.1em;
+}
+
+.prose h2:not(.not-prose *) {
+  margin-top: 2.4em;
+  scroll-margin-top: 5rem;
+}
+
+.prose h3:not(.not-prose *) {
+  margin-top: 1.8em;
+}
+
+.prose ul:not(.not-prose *),
+.prose ol:not(.not-prose *) {
+  padding-left: 1.3em;
+}
+
+.prose ul:not(.not-prose *) {
+  list-style: none;
+}
+
+.prose ul > li:not(.not-prose *) {
+  position: relative;
+}
+
+.prose ul > li:not(.not-prose *)::before {
+  content: "";
+  position: absolute;
+  left: -1em;
+  top: 0.68em;
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.prose ol:not(.not-prose *) {
+  list-style: decimal;
+}
+
+.prose ol > li:not(.not-prose *)::marker {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.prose li + li:not(.not-prose *) {
+  margin-top: 0.35em;
+}
+
+.prose a:not(.not-prose *) {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.prose strong:not(.not-prose *) {
+  color: #fff;
+  font-weight: 700;
+}
+
+.prose :not(pre) > code:not(.not-prose *) {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 0.4em;
+  padding: 0.1em 0.4em;
+  color: #ffd2a8;
+}
+
+.prose pre:not(.not-prose *) {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  background: #141518;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+}
+
+.prose blockquote:not(.not-prose *) {
+  border-left: 3px solid var(--accent);
+  padding-left: 1em;
+  color: var(--muted);
+}
+
+.prose table:not(.not-prose *) {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.prose th:not(.not-prose *),
+.prose td:not(.not-prose *) {
+  border-bottom: 1px solid var(--border);
+  padding: 0.5em 0.8em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th:not(.not-prose *) {
+  color: var(--accent);
+  font-weight: 700;
+}
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

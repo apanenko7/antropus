@@ -1,0 +1,178 @@
+import { permissionsDemo, planModeDemo } from "@/content/uk/demos/claude-code";
+
+<TLDR>
+- <Term id="permissions">Дозволи</Term> вирішують, що агент робить сам, а про що питає. `Shift+Tab` перемикає режими просто в сесії.
+- <Term id="plan-mode" /> — агент досліджує й пише план, але не змінює файли, доки ти не погодиш план.
+- `Esc` зупиняє агента, а `Esc` двічі (або `/rewind`) відкочує код і розмову до попереднього кроку.
+</TLDR>
+
+## Запит дозволу
+
+Коли агент хоче зробити щось потенційно небезпечне, він питає. Читання файлів у проєкті запиту не потребує, а от редагування й більшість команд — потребують (у ручному режимі).
+
+| Варіант відповіді | Що станеться |
+| --- | --- |
+| **Yes** | дозволити один раз |
+| **Yes, and don't ask again for…** | дозволити такі команди й надалі в цьому репозиторії |
+| **No** | відмовити; `Esc` діє так само |
+
+Для команд «don't ask again» зберігає правило в `.claude/settings.local.json`, тож воно діятиме й у наступних сесіях. Дозвіл на редагування файлів діє лише до кінця сесії.
+
+<Demo script={permissionsDemo} />
+
+## Режими дозволів
+
+`Shift+Tab` по колу перемикає режими. Поточний видно під полем вводу.
+
+| Режим | Що робить без питань |
+| --- | --- |
+| **Manual** (`default`) | лише читає; на зміни й команди питає |
+| **Edit automatically** (`acceptEdits`) | ще й редагує файли та виконує прості файлові команди (`mkdir`, `mv`…) |
+| **Plan** (`plan`) | лише досліджує й пише план, файли не чіпає |
+| **<Term id="auto-mode">Auto</Term>** (`auto`) | майже все, а ризиковані дії блокує фоновий класифікатор |
+
+Цикл `Shift+Tab`: Manual → Edit automatically → Plan, а далі додаткові режими, якщо вони доступні. У нових версіях Claude Code сесія в терміналі стартує одразу в auto mode.
+
+<Callout type="warn" title="Bypass permissions — лише в пісочниці">
+Режим `bypassPermissions` (`--dangerously-skip-permissions`) вимикає всі перевірки. Він для ізольованих контейнерів і віртуальних машин, а не для твого ноутбука з робочими ключами.
+</Callout>
+
+## Plan mode: спершу план, потім код
+
+Для великої зміни перемкнись у <Term id="plan-mode" /> (`Shift+Tab` або `/plan` перед задачею). Агент прочитає код, поставить питання й запропонує план. Коли план готовий, Claude спитає, як продовжити:
+
+- **Yes, and use auto mode** — погодити й працювати в auto mode;
+- **Yes, manually approve edits** — погодити, але підтверджувати кожну правку;
+- **No, keep planning** — лишитися в плануванні й пояснити, що змінити.
+
+`Ctrl+G` відкриває план у текстовому редакторі, щоб відредагувати його перед стартом.
+
+<Demo script={planModeDemo} />
+
+## Правила в settings.json
+
+Щоб не тиснути «Yes» на `npm test` щоразу, додай правила у <Term id="settings-json" />:
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm run *)", "Bash(git commit *)"],
+    "deny": ["Bash(git push *)", "Read(./.env)"]
+  }
+}
+```
+
+Правила перевіряються в порядку **deny → ask → allow**: deny завжди перемагає, навіть якщо є вужче allow. `.claude/settings.json` комітиться для всієї команди, `.claude/settings.local.json` — лише для тебе, `~/.claude/settings.json` — для всіх твоїх проєктів. Керувати правилами в сесії можна командою `/permissions`.
+
+<DoDont
+  dont={["Дозволяти назавжди `rm`, `git push`, деплой", "Працювати з bypass-режимом на робочій машині", "Тримати секрети доступними для читання"]}
+  doThis={["Дозволити тести, лінтер, білд", "Небезпечне лишити на підтвердження або в deny", "Закрити `.env` правилом `Read(./.env)` у deny"]}
+/>
+
+## Зупинити й відкотити
+
+- **`Esc`** — зупиняє агента посеред дії. Зроблене до цього моменту лишається, і можна одразу скерувати інакше.
+- **Повідомлення під час роботи** — просто напиши й натисни Enter: агент прочитає його після поточного кроку.
+- **`Esc` двічі на порожньому полі або `/rewind`** — меню <Term id="checkpoint">контрольних точок</Term>: відкотити код, розмову або обидва до одного з попередніх повідомлень.
+
+<Callout type="tip" title="Чого rewind не поверне">
+Контрольні точки покривають файли, які агент змінив своїми інструментами редагування. Зміни через Bash-команди, а також дії назовні (база даних, API, деплой) не відкочуються. Тому <Term id="git" /> усе одно потрібен.
+</Callout>
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "permissions-plan-1",
+      type: "single",
+      question: "Що робить агент у plan mode?",
+      options: [
+        { text: "Досліджує код і пропонує план, не змінюючи файли до твого погодження", correct: true },
+        { text: "Виконує все без запитів дозволу" },
+        { text: "Лише відповідає на питання, не читаючи файлів" },
+        { text: "Пише план у CLAUDE.md і одразу його виконує" },
+      ],
+      explain: "Plan mode — це дослідження й план. Редагування заблоковане, доки ти не погодиш план.",
+    },
+    {
+      id: "permissions-plan-2",
+      type: "match",
+      question: "Співстав клавішу чи команду з дією",
+      pairs: [
+        ["Shift+Tab", "Перемкнути режим дозволів"],
+        ["Esc", "Зупинити агента посеред дії"],
+        ["Esc двічі на порожньому полі", "Відкрити меню rewind"],
+        ["/permissions", "Керувати правилами allow/deny"],
+      ],
+      explain: "Ці чотири варто знати напам'ять: вони дають повний контроль над агентом.",
+    },
+    {
+      id: "permissions-plan-3",
+      type: "findbug",
+      question: "Який рядок у цих налаштуваннях небезпечний для звичайного проєкту?",
+      lines: [
+        "{",
+        "  \"permissions\": {",
+        "    \"allow\": [\"Bash(npm run test *)\", \"Bash(npm run lint)\",",
+        "              \"Bash(git push *)\"],",
+        "    \"deny\": [\"Read(./.env)\"]",
+        "  }",
+        "}",
+      ],
+      bad: [3],
+      explain: "git push відправляє код на сервер, і rewind його не поверне. Таке краще лишити на підтвердження або в deny.",
+    },
+    {
+      id: "permissions-plan-4",
+      type: "truefalse",
+      question: "Якщо в allow є Bash(aws s3 ls), а в deny є Bash(aws *), то команда aws s3 ls виконається без питань.",
+      answer: false,
+      explain: "Порядок перевірки deny → ask → allow: deny перемагає завжди, навіть якщо allow вужче.",
+    },
+    {
+      id: "permissions-plan-5",
+      type: "multi",
+      question: "Що НЕ відкотиться через /rewind?",
+      options: [
+        { text: "Зміни в базі даних через скрипт", correct: true },
+        { text: "Деплой на сервер", correct: true },
+        { text: "Файл, змінений лише Bash-командою", correct: true },
+        { text: "Правка файлу, зроблена інструментом редагування Claude" },
+      ],
+      explain: "Контрольні точки — це знімки файлів перед правками самого агента. Зовнішні дії й зміни через Bash вони не покривають.",
+    },
+    {
+      id: "permissions-plan-6",
+      type: "single",
+      question: "Де зберігається правило, коли ти обираєш «Yes, and don't ask again» для команди?",
+      options: [
+        { text: ".claude/settings.local.json у корені репозиторію", correct: true },
+        { text: "CLAUDE.md" },
+        { text: "package.json" },
+        { text: "Ніде, діє лише до кінця сесії" },
+      ],
+      explain: "Правило зберігається в локальних налаштуваннях репозиторію й діє в наступних сесіях.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "permissions-plan-settings",
+    title: "Налаштуй безпечні дозволи",
+    prompt: "Напиши .claude/settings.json для Node-проєкту: дозволь без питань тести й лінтер через npm, заборони git push і читання .env. Формат — валідний JSON.",
+    mono: true,
+    starter: "{\n  \"permissions\": {\n    \"allow\": [],\n    \"deny\": []\n  }\n}",
+    rules: [
+      { id: "json", type: "validJson", label: "Валідний JSON", hint: "Перевір лапки й коми: JSON не пробачає зайвої коми в кінці масиву." },
+      { id: "keys", type: "jsonKeys", keys: ["permissions"], label: "Є ключ permissions", hint: "Усі правила лежать усередині об'єкта \"permissions\"." },
+      { id: "allow-test", type: "regex", pattern: "\"allow\"\\s*:\\s*\\[[^\\]]*Bash\\(npm[^)]*test", label: "У allow є тести через npm", hint: "Додай у allow щось на кшталт \"Bash(npm run test *)\"." },
+      { id: "allow-lint", type: "regex", pattern: "\"allow\"\\s*:\\s*\\[[^\\]]*lint", label: "У allow є лінтер", hint: "Додай \"Bash(npm run lint)\" в allow." },
+      { id: "deny-push", type: "regex", pattern: "\"deny\"\\s*:\\s*\\[[^\\]]*Bash\\(git push", label: "git push у deny", hint: "Додай \"Bash(git push *)\" у deny." },
+      { id: "deny-env", type: "regex", pattern: "\"deny\"\\s*:\\s*\\[[^\\]]*Read\\([^)]*\\.env", label: "Читання .env заборонене", hint: "Додай \"Read(./.env)\" у deny." },
+    ],
+    solution: "{\n  \"permissions\": {\n    \"allow\": [\n      \"Bash(npm run test *)\",\n      \"Bash(npm run lint)\"\n    ],\n    \"deny\": [\n      \"Bash(git push *)\",\n      \"Read(./.env)\"\n    ]\n  }\n}",
+  }}
+/>
+
+<Flashcards terms={["permissions", "plan-mode", "auto-mode", "settings-json", "checkpoint"]} />

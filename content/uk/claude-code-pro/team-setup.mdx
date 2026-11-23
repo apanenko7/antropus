@@ -1,0 +1,160 @@
+import { teamDemo } from "@/content/uk/demos/claude-code-pro";
+
+<TLDR>
+- Налаштування Claude Code живуть у кількох файлах <Term id="settings-json" />. Старший рівень перебиває молодший: **managed → командний рядок → local → project → user**.
+- Командне — у `.claude/settings.json` (комітиш), особисте для проєкту — у `.claude/settings.local.json` (не комітиш).
+- Набір skills, субагентів, хуків і MCP команда роздає одним <Term id="plugin">плагіном</Term> зі свого <Term id="marketplace">маркетплейсу</Term>.
+</TLDR>
+
+## Хто що налаштовує
+
+| Рівень | Файл | Для кого |
+| --- | --- | --- |
+| User | `~/.claude/settings.json` | Ти, у всіх проєктах: модель, тема, особисті дозволи |
+| Project | `.claude/settings.json` | Уся команда (файл у git): дозволи, хуки, плагіни, env |
+| Local | `.claude/settings.local.json` | Ти, лише в цьому проєкті; у git не потрапляє |
+| Managed | `managed-settings.json` чи політика з адмінки | Уся організація; перебити не можна |
+
+Коли той самий ключ задано в кількох місцях, перемагає старший рівень: <Term id="managed-settings" /> → `--settings` у командному рядку → local → project → user. А от **списки** (наприклад `permissions.allow`) не перебиваються, а **зливаються**: кожен файл додає свої правила.
+
+<Callout type="tip" title="«Yes, and don't ask again» пише в local">
+Коли на запит дозволу обираєш «не питати знову», Claude Code зберігає правило в `.claude/settings.local.json`. Тож твої особисті дозволи не потрапляють у командний файл.
+</Callout>
+
+<Demo script={teamDemo} />
+
+## Правила дозволів
+
+Кожне правило — це інструмент і що йому можна:
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm run *)"],
+    "ask": ["Bash(git push *)"],
+    "deny": ["Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)"]
+  }
+}
+```
+
+- **allow** — без запиту. **ask** — завжди питати. **deny** — заборонено.
+- Перевіряються в порядку **deny → ask → allow**: заборона сильніша за дозвіл.
+- `deny` і `ask` з командного файлу діють одразу, а `allow` — лише після того, як людина **довірилася** папці (питання «Do you trust the files in this folder?»). Так чужий репозиторій не видасть собі прав сам.
+
+<Callout type="warn" title="Правило збігається з тим, як написано">
+`Bash(git push *)` не зловить `git -C . push`, а `Read(./.env)` не зупинить `grep -r` по всій папці. Для справжньої ізоляції є блок `sandbox` у налаштуваннях: про нього в модулі «Агентне середовище».
+</Callout>
+
+## Плагіни для команди
+
+Плагін — це папка з маніфестом `.claude-plugin/plugin.json`, у якій можуть бути skills, субагенти, хуки й MCP-сервери. Ставиться одним пакетом через `/plugin`. Маркетплейс — каталог плагінів (репозиторій із `marketplace.json`).
+
+Щоб у кожного, хто клонує репозиторій, був ваш маркетплейс і потрібний плагін, додай у командний `.claude/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "acme-tools": {
+      "source": { "source": "github", "repo": "acme-corp/claude-plugins" }
+    }
+  },
+  "enabledPlugins": {
+    "code-formatter@acme-tools": true
+  }
+}
+```
+
+Перевірити, які файли налаштувань реально завантажилися, можна командою `/status` (рядок `Setting sources`).
+
+<DoDont
+  dont={[
+    "Особисті дозволи в командному .claude/settings.json",
+    "Коментарі чи зайві коми в settings.json — це помилка JSON",
+    "Інструкції «скопіюй ці 5 файлів» у Slack",
+  ]}
+  doThis={[
+    "Командне в .claude/settings.json, своє — в settings.local.json",
+    "Чистий JSON; для автодоповнення додай \"$schema\"",
+    "Плагін команди + enabledPlugins у налаштуваннях",
+  ]}
+/>
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "ccpro-team-setup-1",
+      type: "order",
+      question: "Розстав рівні від найсильнішого до найслабшого",
+      items: ["Managed (організація)", "--settings у командному рядку", "Local (.claude/settings.local.json)", "Project (.claude/settings.json)", "User (~/.claude/settings.json)"],
+      explain: "Старший рівень перебиває молодший. Managed перебити неможливо, а user — найслабший.",
+    },
+    {
+      id: "ccpro-team-setup-2",
+      type: "single",
+      question: "Ти хочеш іншу модель лише для себе в командному проєкті. Куди писати?",
+      options: [
+        { text: ".claude/settings.local.json", correct: true },
+        { text: ".claude/settings.json" },
+        { text: "CLAUDE.md" },
+        { text: ".mcp.json" },
+      ],
+      explain: "Local-файл стоїть вище за командний і не потрапляє в git: змінюється лише твоя сесія.",
+    },
+    {
+      id: "ccpro-team-setup-3",
+      type: "truefalse",
+      question: "Якщо команда дозволяє Bash(git push *) в allow, а в managed-налаштуваннях він у deny, push буде дозволено.",
+      answer: false,
+      explain: "Правила перевіряються в порядку deny → ask → allow, тож заборона виграє.",
+    },
+    {
+      id: "ccpro-team-setup-4",
+      type: "findbug",
+      question: "Чому цей командний settings.json не завантажиться?",
+      lines: [
+        "{",
+        "  \"permissions\": {",
+        "    \"allow\": [\"Bash(npm run *)\"],",
+        "    // забороняємо читати секрети",
+        "    \"deny\": [\"Read(./.env)\"]",
+        "  }",
+        "}",
+      ],
+      bad: [3],
+      explain: "Settings — строгий JSON, коментарі заборонені. Claude Code покаже Settings Error.",
+    },
+    {
+      id: "ccpro-team-setup-5",
+      type: "match",
+      question: "Зістав ключ і що він робить",
+      pairs: [
+        ["permissions.deny", "Забороняє дію повністю"],
+        ["permissions.ask", "Щоразу питає дозволу"],
+        ["enabledPlugins", "Вмикає плагіни для проєкту"],
+        ["extraKnownMarketplaces", "Додає маркетплейс команди"],
+      ],
+      explain: "Дозволи керують діями агента, а пара extraKnownMarketplaces + enabledPlugins роздає командний набір.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "ccpro-team-setup-task",
+    title: "Командний settings.json",
+    prompt: "Напиши .claude/settings.json для команди: дозволь безпечні команди (тести, lint), заборони читати .env і секрети, а push залиш на підтвердження. Лише валідний JSON.",
+    starter: "{\n  \"permissions\": {}\n}",
+    mono: true,
+    rules: [
+      { id: "json", type: "validJson", label: "Валідний JSON", hint: "Без коментарів і зайвих ком наприкінці списків." },
+      { id: "root", type: "jsonKeys", keys: ["permissions"], label: "Є об'єкт permissions", hint: "Правила лежать усередині \"permissions\": { … }." },
+      { id: "allow", type: "regex", pattern: "\"allow\"\\s*:\\s*\\[\\s*\"Bash\\([^)]+\\)\"", label: "allow з Bash-правилом", hint: "Додай \"allow\": [\"Bash(npm run test *)\"]." },
+      { id: "deny-env", type: "regex", pattern: "\"deny\"\\s*:\\s*\\[[^\\]]*Read\\(\\.?/?\\.env", label: "deny на читання .env", hint: "Додай \"deny\": [\"Read(./.env)\", \"Read(./.env.*)\"]." },
+      { id: "ask-push", type: "regex", pattern: "\"ask\"\\s*:\\s*\\[[^\\]]*git push", label: "git push у ask", hint: "Додай \"ask\": [\"Bash(git push *)\"], щоб push щоразу підтверджувався." },
+    ],
+    solution: "{\n  \"permissions\": {\n    \"allow\": [\"Bash(npm run test *)\", \"Bash(npm run lint)\"],\n    \"ask\": [\"Bash(git push *)\"],\n    \"deny\": [\"Read(./.env)\", \"Read(./.env.*)\", \"Read(./secrets/**)\"]\n  }\n}",
+  }}
+/>
+
+<Flashcards terms={["settings-json", "permissions", "managed-settings", "plugin", "marketplace"]} />

@@ -1,0 +1,158 @@
+import { hookDemo } from "@/content/uk/demos/claude-code-pro";
+
+<TLDR>
+- <Term id="hook" /> — команда, яку Claude Code запускає **сам** на подію: перед викликом інструменту, після редагування, на старті сесії, коли агент закінчив.
+- Це детермінізм: інструкція в CLAUDE.md — прохання, яке модель може забути, а хук спрацьовує завжди.
+- Налаштовуються в <Term id="settings-json" />: подія → <Term id="matcher" /> → команда. Exit code `2` у `PreToolUse` блокує дію.
+</TLDR>
+
+## Прохання проти гарантії
+
+«Після кожної правки запускай prettier» у CLAUDE.md спрацює… майже завжди. Хук `PostToolUse` спрацює **завжди**, бо його запускає Claude Code, а не модель. Тому все, що мусить відбуватися без винятків (форматування, заборони, сповіщення), виноси в хуки.
+
+<Demo script={hookDemo} />
+
+## Основні події
+
+| Подія | Коли | Типове використання |
+| --- | --- | --- |
+| `PreToolUse` | Перед викликом інструменту | Заблокувати небезпечну команду |
+| `PostToolUse` | Після успішного виклику | Форматер, лінтер, логування |
+| `UserPromptSubmit` | Коли ти надіслав повідомлення | Додати контекст, перевірити запит |
+| `SessionStart` | Старт або відновлення сесії | Підвантажити стан проєкту |
+| `Stop` | Агент закінчив відповідь | Сповіщення, фінальна перевірка |
+| `Notification` | Claude чекає на тебе | Звук чи desktop-сповіщення |
+
+Подій більше (про субагентів, стиснення контексту, зміну файлів), повний список — у документації hooks.
+
+## Як виглядає налаштування
+
+Три рівні вкладення: **подія → група з matcher → обробники**. Ось офіційний приклад: prettier після кожного редагування, у `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path') && npx prettier --write --ignore-unknown \"$f\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+- **matcher** фільтрує за назвою інструменту: `Edit|Write` — лише редагування, `Bash` — лише команди, `*` або порожньо — усе.
+- Команда отримує на **stdin** JSON із подією: `tool_name`, `tool_input` (там шлях файлу чи текст команди) тощо. Тому в прикладі `jq` дістає `.tool_input.file_path`.
+- Окрім `command`, бувають типи `http`, `prompt` і `agent`: для рішень, де потрібне судження моделі.
+
+## Блокування: exit codes
+
+| Код виходу | Що станеться |
+| --- | --- |
+| `0` | Успіх, дія продовжується |
+| `2` | **Блокування** (на подіях, що вміють блокувати): дію зупинено, текст зі stderr іде агенту як причина |
+| Інший (напр. `1`) | Помилка хука, але дія **продовжується** |
+
+<Callout type="warn" title="exit 1 не блокує">
+Найчастіша помилка: скрипт-охоронець виходить з кодом 1 і думаєш, що команду заборонено. Ні: блокує тільки `2`. Або exit 0 з JSON, де `permissionDecision: "deny"`.
+</Callout>
+
+Перевірити, що налаштовано, можна командою `/hooks`: вона показує всі хуки й файл, звідки кожен прийшов.
+
+<Callout type="pro" title="Хуки виконуються від твого імені">
+Хук — це звичайна shell-команда з твоїми правами. Не копіюй чужі хуки, не прочитавши, що вони роблять.
+</Callout>
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "ccpro-hooks-1",
+      type: "single",
+      question: "Чим хук кращий за інструкцію в CLAUDE.md «завжди форматуй код»?",
+      options: [
+        { text: "Хук запускає Claude Code, тож він спрацює гарантовано, а не «коли модель згадає»", correct: true },
+        { text: "Хук дешевший, бо не витрачає токенів моделі на міркування" },
+        { text: "Хуки працюють лише в CI" },
+        { text: "Нічим, це одне й те саме" },
+      ],
+      explain: "Інструкція — прохання до моделі. Хук — детермінована дія harness на подію.",
+    },
+    {
+      id: "ccpro-hooks-2",
+      type: "match",
+      question: "Зістав задачу і подію",
+      pairs: [
+        ["Заборонити rm -rf", "PreToolUse"],
+        ["Prettier після редагування", "PostToolUse"],
+        ["Звук, коли Claude чекає на тебе", "Notification"],
+        ["Підвантажити стан задачі на старті", "SessionStart"],
+      ],
+      explain: "Блокувати можна лише до дії (PreToolUse), форматувати — після (PostToolUse).",
+    },
+    {
+      id: "ccpro-hooks-3",
+      type: "single",
+      question: "PreToolUse-хук знайшов небезпечну команду. Яким кодом вийти, щоб її заблокувати?",
+      options: [
+        { text: "2", correct: true },
+        { text: "1" },
+        { text: "0" },
+        { text: "Будь-яким ненульовим" },
+      ],
+      explain: "Блокує лише exit 2 (stderr стає причиною). Інші ненульові коди — помилка хука, дія продовжується.",
+    },
+    {
+      id: "ccpro-hooks-4",
+      type: "findbug",
+      question: "Хук має форматувати лише відредаговані файли. Що зламано?",
+      lines: [
+        "{",
+        "  \"hooks\": {",
+        "    \"PreToolUse\": [",
+        "      {",
+        "        \"matcher\": \"Edit|Write\",",
+        "        \"hooks\": [{ \"type\": \"command\", \"command\": \"npx prettier --write ...\" }]",
+        "      }",
+        "    ]",
+        "  }",
+        "}",
+      ],
+      bad: [2],
+      explain: "PreToolUse спрацьовує ДО редагування, коли змін ще немає. Для форматування потрібен PostToolUse.",
+    },
+    {
+      id: "ccpro-hooks-5",
+      type: "truefalse",
+      question: "Хук отримує дані про подію (наприклад, tool_input з шляхом файлу) як JSON на stdin.",
+      answer: true,
+      explain: "Тому в прикладах використовують jq: він дістає потрібне поле з JSON.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "ccpro-hooks-task",
+    title: "Налаштуй хук",
+    prompt: "Напиши блок hooks для .claude/settings.json (валідний JSON). Варіанти: запускати лінтер після редагування (PostToolUse + Edit|Write) або перевіряти Bash-команди перед виконанням (PreToolUse + Bash).",
+    starter: "{\n  \"hooks\": {}\n}",
+    mono: true,
+    rules: [
+      { id: "json", type: "validJson", label: "Валідний JSON", hint: "Перевір лапки, коми й дужки. Коментарі й зайві коми в кінці JSON заборонені." },
+      { id: "root", type: "jsonKeys", keys: ["hooks"], label: "Корінь містить hooks", hint: "Усе має бути всередині об'єкта \"hooks\": { … }." },
+      { id: "event", type: "includesAny", values: ["\"PostToolUse\"", "\"PreToolUse\"", "\"SessionStart\"", "\"Stop\"", "\"UserPromptSubmit\"", "\"Notification\""], caseSensitive: true, label: "Є подія з правильною назвою", hint: "Додай подію, напр. \"PostToolUse\" або \"PreToolUse\" (з великих літер, як у документації)." },
+      { id: "matcher", type: "regex", pattern: "\"matcher\"\\s*:\\s*\"[^\"]+\"", label: "Є matcher", hint: "Додай \"matcher\": \"Edit|Write\" чи \"Bash\", щоб хук не спрацьовував на все." },
+      { id: "command", type: "regex", pattern: "\"type\"\\s*:\\s*\"command\"[\\s\\S]*\"command\"\\s*:\\s*\"[^\"]+\"", label: "Є обробник type: command з командою", hint: "Усередині \"hooks\": [ { \"type\": \"command\", \"command\": \"…\" } ]." },
+    ],
+    solution: "{\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit|Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"npx eslint --fix \\\"$(jq -r '.tool_input.file_path')\\\"\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+  }}
+/>
+
+<Flashcards terms={["hook", "matcher", "settings-json", "permissions"]} />

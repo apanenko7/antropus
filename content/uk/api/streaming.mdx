@@ -1,0 +1,137 @@
+import { streamingDemo } from "@/content/uk/demos/api";
+
+<TLDR>
+- <Term id="streaming" /> віддає відповідь шматочками: користувач бачить текст одразу, а не через хвилину.
+- Для довгих відповідей і великого <Term id="max-tokens" /> streaming обов'язковий — інакше впрешся в HTTP-таймаут.
+- У TypeScript: `client.messages.stream(...)`, текст — через подію `"text"`, повний результат — `await stream.finalMessage()`.
+</TLDR>
+
+## Навіщо streaming
+
+Звичайний запит повертає відповідь, лише коли модель дописала її повністю. Для короткої відповіді це секунда, для звіту на кілька тисяч слів — хвилина й більше тиші.
+
+Streaming вирішує дві проблеми:
+
+1. **UX** — текст друкується по мірі генерації, як у чаті Claude.
+2. **Таймаути** — довгий неперервний запит може обірватись, а потік тримає з'єднання живим. SDK навіть вимагає streaming для дуже великих `max_tokens`.
+
+<Demo script={streamingDemo} />
+
+## Як це виглядає в коді
+
+```ts
+const stream = client.messages.stream({
+  model: "claude-opus-5-5",
+  max_tokens: 64000,
+  messages: [{ role: "user", content: "Напиши детальний звіт за листопад" }],
+});
+
+stream.on("text", delta => process.stdout.write(delta)); // шматочки тексту
+
+const message = await stream.finalMessage(); // повна відповідь + usage
+console.log("\n", message.stop_reason, message.usage.output_tokens);
+```
+
+| Що | Навіщо |
+| --- | --- |
+| `messages.stream()` | відкриває потік замість одного великого запиту |
+| `on("text", …)` | отримуєш лише новий шматок тексту |
+| `finalMessage()` | чекаєш завершення й отримуєш звичайний об'єкт відповіді |
+
+<Callout type="tip" title="Не винаходь велосипед">
+Не обгортай події потоку в `new Promise(...)` власноруч — `finalMessage()` уже обробляє завершення, помилки й скасування.
+</Callout>
+
+## Коли що використовувати
+
+<DoDont
+  dont={["Звичайний create з max_tokens: 64000 для довгого звіту", "Чекати повну відповідь у чат-інтерфейсі", "Власний парсер подій SSE поверх fetch"]}
+  doThis={["messages.stream + finalMessage для довгих відповідей", "Показувати текст по мірі генерації", "Готові помічники SDK: on(\"text\"), finalMessage()"]}
+/>
+
+Короткі службові виклики (класифікація, витяг пари полів) можна робити звичайним `create` — там streaming нічого не дає.
+
+## Потік і бекенд
+
+У вебзастосунку ланцюжок такий: браузер ↔ твій сервер ↔ Claude. Сервер відкриває потік до API і пересилає шматки браузеру (наприклад, через `ReadableStream` у route handler). Ключ при цьому так само лишається на сервері.
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "api-streaming-1",
+      type: "single",
+      question: "Сценарій: генерація технічної документації (до 40 000 токенів) інколи падає з таймаутом. Що зробити насамперед?",
+      options: [
+        { text: "Перейти на messages.stream і забирати результат через finalMessage()", correct: true },
+        { text: "Зменшити max_tokens до 1024" },
+        { text: "Повторювати запит, поки не пройде" },
+        { text: "Розбити документацію на 40 окремих запитів по 1000 токенів" },
+      ],
+      explain: "Довгі відповіді та великі max_tokens — головний випадок для streaming: з'єднання не простоює, таймаут не спрацьовує.",
+    },
+    {
+      id: "api-streaming-2",
+      type: "findbug",
+      question: "Який рядок робить код гіршим, ніж треба?",
+      lines: [
+        "const stream = client.messages.stream({ model: \"claude-opus-5-5\", max_tokens: 64000, messages });",
+        "stream.on(\"text\", d => send(d));",
+        "const msg = await new Promise(res => stream.on(\"end\", res));",
+        "console.log(msg);",
+      ],
+      bad: [2],
+      explain: "Ручна обгортка в Promise губить помилки й скасування. Правильно: const msg = await stream.finalMessage().",
+    },
+    {
+      id: "api-streaming-3",
+      type: "multi",
+      question: "Що дає streaming?",
+      options: [
+        { text: "Користувач бачить текст одразу", correct: true },
+        { text: "Довгі запити не впираються в HTTP-таймаут", correct: true },
+        { text: "Відповідь стає дешевшою вдвічі" },
+        { text: "Модель відповідає розумніше" },
+      ],
+      explain: "Streaming змінює доставку, а не зміст і не ціну: токени ті самі.",
+    },
+    {
+      id: "api-streaming-4",
+      type: "truefalse",
+      question: "Для класифікації короткого відгуку однією міткою streaming не потрібен.",
+      answer: true,
+      explain: "Відповідь у кілька токенів приходить миттєво — звичайного create достатньо.",
+    },
+    {
+      id: "api-streaming-5",
+      type: "order",
+      question: "Розстав кроки обробки потоку",
+      items: [
+        "Відкрити потік messages.stream(...)",
+        "Отримувати шматки через on(\"text\")",
+        "Дочекатися finalMessage()",
+        "Перевірити stop_reason і usage",
+      ],
+      explain: "Спершу потік, потім дельти, потім повне повідомлення — і лише тоді перевірки.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "api-streaming-task",
+    title: "Переведи запит на streaming",
+    prompt: "Цей код генерує довгий звіт і падає з таймаутом. Перепиши його на streaming: друкуй текст по мірі генерації і в кінці отримай повну відповідь без ручних Promise.",
+    starter: "const response = await client.messages.create({\n  model: \"claude-opus-5-5\",\n  max_tokens: 64000,\n  messages: [{ role: \"user\", content: \"Напиши річний звіт\" }],\n});\nconsole.log(response.content);",
+    mono: true,
+    rules: [
+      { id: "stream", type: "includesAll", values: ["messages.stream("], label: "Використано messages.stream(…)", hint: "Заміни messages.create на client.messages.stream({...})." },
+      { id: "text", type: "regex", pattern: "\\.on\\(\\s*[\"']text[\"']", label: "Текст друкується через on(\"text\")", hint: "Додай stream.on(\"text\", delta => …), щоб показувати шматки." },
+      { id: "final", type: "includesAll", values: ["finalMessage()"], label: "Повна відповідь через finalMessage()", hint: "Отримай результат: const message = await stream.finalMessage();" },
+      { id: "no-promise", type: "notIncludes", values: ["new Promise"], label: "Без ручного new Promise", hint: "Не обгортай події в Promise — finalMessage() робить це за тебе." },
+    ],
+    solution: "const stream = client.messages.stream({\n  model: \"claude-opus-5-5\",\n  max_tokens: 64000,\n  messages: [{ role: \"user\", content: \"Напиши річний звіт\" }],\n});\n\nstream.on(\"text\", delta => process.stdout.write(delta));\n\nconst message = await stream.finalMessage();\nconsole.log(message.stop_reason, message.usage.output_tokens);",
+  }}
+/>
+
+<Flashcards terms={["streaming", "max-tokens", "stop-reason"]} />

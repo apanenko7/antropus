@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// Progress lives in users/{uid}. Each user can read only their own data.
+// All writes go through Next.js server routes with the Admin SDK (which bypasses
+// these rules), so XP and progress can't be tampered with from the browser.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+
+      match /{sub=**} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+    }
+
+    // Everything else stays closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

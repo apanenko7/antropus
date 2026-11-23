@@ -1,0 +1,167 @@
+import { initDemo } from "@/content/uk/demos/claude-code";
+
+<TLDR>
+- <Term id="claude-md" /> — markdown-файл, який Claude Code читає на старті **кожної** сесії: постійні інструкції проєкту.
+- Пиши лише те, чого агент не дізнається з коду: команди перевірки, неочевидні домовленості, підводні камені.
+- Коротко: до 200 рядків. Почни з `/init`, а потім викреслюй зайве.
+</TLDR>
+
+## Навіщо він
+
+Кожна сесія стартує з чистим контекстом. Без CLAUDE.md ти щоразу пояснюєш одне й те саме: «тести запускаються так», «помилки кидаємо через наш хелпер». CLAUDE.md — це <Term id="memory" />, яку ти пишеш сам один раз.
+
+<Callout type="tip" title="Кожен рядок коштує уваги">
+Файл завантажується в кожну задачу, навіть не пов'язану з ним. Тому кожен зайвий рядок трохи розмиває увагу агента. Чим коротше й конкретніше, тим краще він виконує.
+</Callout>
+
+## Що писати, а що ні
+
+<DoDont
+  dont={[
+    "Опис структури папок: агент бачить її сам",
+    "Загальники: «пиши якісний код»",
+    "Те, що й так видно з package.json",
+    "Довгі абзаци замість пунктів",
+  ]}
+  doThis={[
+    "Точні команди: тести, typecheck, lint, один тестовий файл",
+    "Оманливе в коді: «src/legacy/ живий, але не копіюй його патерни»",
+    "Рішення, яких немає в коді: як деплоїмо, який хелпер помилок",
+    "Те, що ти вже двічі виправляв",
+  ]}
+/>
+
+Формулюй так, щоб можна було перевірити:
+
+| Замість | Пиши |
+| --- | --- |
+| «Форматуй код правильно» | «Відступ 2 пробіли» |
+| «Тестуй зміни» | «Перед комітом запускай `npm test`» |
+| «Тримай файли впорядкованими» | «API-хендлери лежать у `src/api/handlers/`» |
+
+Добрий CLAUDE.md виглядає приблизно так:
+
+```markdown
+# Commands
+- Install: pnpm install
+- One test: pnpm vitest run path/to/file.test.ts
+- Typecheck: pnpm tsc --noEmit
+
+# Conventions
+- Errors via helpers in src/lib/errors.ts, never throw raw strings
+- src/legacy/ is live, but don't copy its patterns
+
+# Gotchas
+- Integration tests need DATABASE_URL, see .env.example
+```
+
+## Де він лежить
+
+| Файл | Для чого | Хто бачить |
+| --- | --- | --- |
+| `./CLAUDE.md` або `./.claude/CLAUDE.md` | правила проєкту | уся команда через git |
+| `./CLAUDE.local.md` | твої особисті нотатки до проєкту (додай у `.gitignore`) | лише ти |
+| `~/.claude/CLAUDE.md` | твої вподобання для всіх проєктів | лише ти |
+
+Усі знайдені файли **об'єднуються**, а не перекривають один одного. CLAUDE.md у підпапках підвантажуються, коли агент працює з файлами в них. Інші файли можна підключити імпортом: рядок `@README.md` в CLAUDE.md додасть README в контекст.
+
+<Callout type="warn" title="Це підказка, а не замок">
+CLAUDE.md — контекст, а не жорстке правило. «Ніколи не роби push» працює майже завжди, але не гарантовано. Те, що не має винятків, закривай через <Term id="permissions">дозволи</Term> (deny) або <Term id="hook">хуки</Term>.
+</Callout>
+
+## Як створити й підтримувати
+
+<Steps items={[
+  { title: "/init", text: "Claude проаналізує проєкт і створить чернетку з командами й домовленостями." },
+  { title: "Викресли зайве", text: "Прибери все, що агент і так побачить у коді." },
+  { title: "Додавай по ходу", text: "Поправив агента вдруге — допиши правило. Редагувати можна через /memory." },
+  { title: "Чисти", text: "Застарілі й суперечливі рядки видаляй: при конфлікті агент обере навмання." },
+]} />
+
+<Demo script={initDemo} />
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "claude-md-1",
+      type: "multi",
+      question: "Що варто записати в CLAUDE.md?",
+      options: [
+        { text: "Команду запуску одного тестового файлу", correct: true },
+        { text: "«src/legacy/ ще живий, але не копіюй його патерни»", correct: true },
+        { text: "Як у команді прийнято деплоїти", correct: true },
+        { text: "Повний опис структури всіх папок" },
+        { text: "«Пиши чистий і якісний код»" },
+      ],
+      explain: "Потрібне лише те, чого агент не дізнається з коду і що можна перевірити. Структуру він бачить сам, а загальники нічого не дають.",
+    },
+    {
+      id: "claude-md-2",
+      type: "match",
+      question: "Співстав файл з його призначенням",
+      pairs: [
+        ["./CLAUDE.md", "Правила проєкту для всієї команди"],
+        ["./CLAUDE.local.md", "Особисті нотатки до цього проєкту"],
+        ["~/.claude/CLAUDE.md", "Твої вподобання для всіх проєктів"],
+      ],
+      explain: "Проєктний файл комітиться, локальний іде в .gitignore, а користувацький лежить у домашній теці.",
+    },
+    {
+      id: "claude-md-3",
+      type: "findbug",
+      question: "Які рядки цього CLAUDE.md марні або шкідливі?",
+      lines: [
+        "# Commands",
+        "- Test: npm test",
+        "- Пиши якісний код і не роби помилок",
+        "# Structure",
+        "- src/ містить код, tests/ містить тести",
+        "# Gotchas",
+        "- E2E потребують DATABASE_URL, див. .env.example",
+      ],
+      bad: [2, 4],
+      explain: "«Пиши якісний код» неможливо перевірити, а структуру папок агент бачить сам. Команда тесту й підводний камінь — корисні.",
+    },
+    {
+      id: "claude-md-4",
+      type: "truefalse",
+      question: "Якщо написати правило в CLAUDE.md великими літерами з IMPORTANT, Claude Code гарантовано його виконає.",
+      answer: false,
+      explain: "CLAUDE.md — контекст, а не примус. Правила без винятків закривай дозволами (deny) або хуками.",
+    },
+    {
+      id: "claude-md-5",
+      type: "single",
+      question: "Який рекомендований розмір CLAUDE.md?",
+      options: [
+        { text: "До 200 рядків", correct: true },
+        { text: "Не менше 1000 рядків, щоб усе описати" },
+        { text: "Рівно один рядок" },
+        { text: "Розмір не має значення" },
+      ],
+      explain: "Довший файл займає більше контексту й гірше виконується. Те, що стосується лише частини коду, винось в окремі правила.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "claude-md-write",
+    title: "Напиши CLAUDE.md для свого проєкту",
+    prompt: "Склади короткий CLAUDE.md: розділ з командами (тести обов'язково), розділ з домовленостями та розділ з підводними каменями. Пиши пунктами, без опису структури папок.",
+    mono: true,
+    starter: "# Commands\n- \n\n# Conventions\n- \n\n# Gotchas\n- ",
+    rules: [
+      { id: "h-commands", type: "heading", values: ["command", "команд"], label: "Є заголовок розділу з командами", hint: "Додай заголовок на кшталт «# Commands» або «# Команди»." },
+      { id: "h-conventions", type: "heading", values: ["convention", "домовлен", "стиль", "style", "правил"], label: "Є розділ з домовленостями", hint: "Додай «# Conventions» або «# Домовленості»." },
+      { id: "h-gotchas", type: "heading", values: ["gotcha", "підводн", "увага", "pitfall", "нюанс"], label: "Є розділ з підводними каменями", hint: "Додай «# Gotchas» або «# Підводні камені»." },
+      { id: "test-cmd", type: "regex", pattern: "(npm|pnpm|yarn|bun|npx|pytest|go test|cargo test|make)[^\\n]*test|vitest|jest|phpunit", label: "Є конкретна команда запуску тестів", hint: "Впиши точну команду: «npm test», «pnpm vitest run», «pytest»…" },
+      { id: "bullets", type: "regex", pattern: "([\\s\\S]*?^\\s*[-*]\\s+\\S){4}", label: "Щонайменше 4 пункти списком", hint: "Пиши пунктами, що починаються з «- », хоча б чотири." },
+      { id: "short", type: "maxWords", value: 150, label: "Коротко (до 150 слів)", hint: "Скороти: CLAUDE.md має бути стислим." },
+    ],
+    solution: "# Commands\n- Install: npm install\n- Test all: npm test\n- One test: npx vitest run path/to/file.test.ts\n- Lint: npm run lint\n\n# Conventions\n- Помилки лише через хелпери з src/lib/errors.ts\n- Нові компоненти — у components/ui, без default export\n\n# Gotchas\n- E2E тести потребують DATABASE_URL, див. .env.example\n- src/legacy/ ще в роботі, але не копіюй його патерни",
+  }}
+/>
+
+<Flashcards terms={["claude-md", "memory", "permissions", "hook"]} />

@@ -1,0 +1,169 @@
+import { toolsDemo } from "@/content/uk/demos/api";
+
+<TLDR>
+- <Term id="tool-use" />: ти описуєш функції (назва, опис, JSON-схема), модель вирішує, яку викликати, а **виконує їх твій код**.
+- Цикл: відповідь з `stop_reason: "tool_use"` → виконуєш функцію → повертаєш `tool_result` → модель відповідає далі.
+- Коли потрібен просто JSON у відповідь, бери <Term id="structured-outputs" />: `output_config.format` гарантує відповідність схемі.
+</TLDR>
+
+## Як працює tool use
+
+Модель не має доступу до твоєї бази чи сервісів. Але ти можеш дати їй **меню інструментів**:
+
+```ts
+const tools = [
+  {
+    name: "get_order_status",
+    description: "Повертає статус і очікувану дату доставки замовлення за його номером. Використовуй, коли клієнт питає про своє замовлення.",
+    input_schema: {
+      type: "object",
+      properties: { order_id: { type: "string", description: "Номер замовлення, напр. 1842" } },
+      required: ["order_id"],
+    },
+  },
+];
+```
+
+<Demo script={toolsDemo} />
+
+## Цикл агента в чотири кроки
+
+<Steps items={[
+  { title: "Запит з tools", text: "Надсилаєш messages + список інструментів." },
+  { title: "stop_reason: tool_use", text: "У content є блок tool_use з назвою інструменту й аргументами." },
+  { title: "Виконуєш і повертаєш", text: "Твій код викликає функцію і шле tool_result з тим самим tool_use_id." },
+  { title: "Фінальна відповідь", text: "Модель використовує результат і відповідає (або кличе ще інструмент)." },
+]} />
+
+```ts
+for (const block of response.content) {
+  if (block.type === "tool_use") {
+    const result = await getOrderStatus(block.input.order_id);
+    messages.push({ role: "assistant", content: response.content });
+    messages.push({
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(result) }],
+    });
+  }
+}
+```
+
+<Callout type="tip" title="Описи — це промпт">
+Модель обирає інструмент за `name` і `description`. «Отримати дані» — погано. «Повертає статус замовлення за номером; використовуй, коли клієнт питає про доставку» — добре. Детальніше — у модулі «Архітектура агентів».
+</Callout>
+
+Кілька порад:
+- Якщо модель викликала кілька інструментів одразу, поверни **усі** `tool_result` в одному повідомленні `user`.
+- Помилку інструменту повертай як `tool_result` з `is_error: true`, а не мовчки пропускай.
+- Аргументи завжди розбирай як JSON-об'єкт, не порівнюй рядки.
+- Додай `strict: true` до визначення інструменту, щоб аргументи гарантовано відповідали схемі.
+
+## Structured outputs: просто дай JSON
+
+Якщо інструменти не потрібні, а потрібна відповідь у певній формі (витягти поля з листа, класифікувати), використовуй <Term id="structured-outputs" />:
+
+```ts
+import { z } from "zod";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+
+const Contact = z.object({ name: z.string(), email: z.string(), plan: z.string() });
+
+const res = await client.messages.parse({
+  model: "claude-opus-5-5",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: "Витягни контакт: Олена Коваль, olena@co.ua, тариф Pro" }],
+  output_config: { format: zodOutputFormat(Contact) },
+});
+
+console.log(res.parsed_output?.email);
+```
+
+| Потрібно | Бери |
+| --- | --- |
+| Модель має отримати дані чи зробити дію у твоїй системі | tool use |
+| Відповідь у фіксованій JSON-структурі | structured outputs |
+| Агент, що сам кличе інструменти багато разів | tool use + цикл (або Tool Runner у SDK) |
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "api-tools-1",
+      type: "single",
+      question: "Хто виконує функцію, коли модель повертає блок tool_use?",
+      options: [
+        { text: "Твій застосунок, а результат повертає як tool_result", correct: true },
+        { text: "Сервери Anthropic автоматично" },
+        { text: "Модель сама, всередині відповіді" },
+        { text: "Браузер користувача" },
+      ],
+      explain: "Для твоїх (client) інструментів модель лише обирає виклик і аргументи; виконання — завжди на твоєму боці.",
+    },
+    {
+      id: "api-tools-2",
+      type: "single",
+      question: "Сценарій: треба з 10 000 листів витягти ім'я, email і тему у фіксованому форматі для запису в базу. Що обрати?",
+      options: [
+        { text: "Structured outputs зі схемою (output_config.format)", correct: true },
+        { text: "Попросити «поверни JSON» і парсити регулярками" },
+        { text: "Prefill відповіді символом {" },
+        { text: "Tool use з інструментом, який нічого не робить" },
+      ],
+      explain: "Structured outputs гарантують, що відповідь відповідає схемі, — парсинг не впаде. Prefill на нових моделях не підтримується.",
+    },
+    {
+      id: "api-tools-3",
+      type: "findbug",
+      question: "Що не так у цьому визначенні інструменту?",
+      lines: [
+        "{",
+        "  name: \"tool1\",",
+        "  description: \"Отримує дані\",",
+        "  input_schema: { type: \"object\", properties: { id: { type: \"string\" } }, required: [\"id\"] }",
+        "}",
+      ],
+      bad: [1, 2],
+      explain: "Назва й опис нічого не кажуть моделі: що за дані, коли викликати? Модель обирає інструмент саме за ними.",
+    },
+    {
+      id: "api-tools-4",
+      type: "order",
+      question: "Розстав кроки циклу tool use",
+      items: [
+        "Надіслати запит із tools",
+        "Отримати stop_reason: tool_use",
+        "Виконати функцію у своєму коді",
+        "Надіслати tool_result з tool_use_id",
+        "Отримати фінальну відповідь",
+      ],
+      explain: "Модель пропонує виклик → ти виконуєш → повертаєш результат → модель завершує.",
+    },
+    {
+      id: "api-tools-5",
+      type: "truefalse",
+      question: "Якщо модель запросила три інструменти в одній відповіді, результати можна повернути трьома окремими повідомленнями user.",
+      answer: false,
+      explain: "Усі tool_result повертаються разом в одному повідомленні user — інакше модель гірше використовує паралельні виклики.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "api-tools-task",
+    title: "Опиши інструмент для моделі",
+    prompt: "Напиши JSON-визначення інструменту search_products для інтернет-магазину: пошук товарів за текстовим запитом з необов'язковою максимальною ціною. Дай зрозумілий опис (коли використовувати) і схему з обов'язковим полем запиту.",
+    starter: "{\n  \"name\": \"search_products\"\n}",
+    mono: true,
+    rules: [
+      { id: "json", type: "validJson", label: "Валідний JSON", hint: "Перевір лапки та коми." },
+      { id: "keys", type: "jsonKeys", keys: ["name", "description", "input_schema"], label: "Є name, description, input_schema", hint: "Інструмент має три основні поля: name, description, input_schema." },
+      { id: "desc", type: "regex", pattern: "\"description\"\\s*:\\s*\"[^\"]{40,}\"", label: "Змістовний опис (40+ символів)", hint: "Опиши, що робить інструмент і коли його викликати." },
+      { id: "object", type: "regex", pattern: "\"type\"\\s*:\\s*\"object\"", label: "Схема типу object", hint: "input_schema має бути { \"type\": \"object\", \"properties\": … }." },
+      { id: "required", type: "regex", pattern: "\"required\"\\s*:\\s*\\[\\s*\"", label: "Є список required", hint: "Познач обов'язкове поле: \"required\": [\"query\"]." },
+    ],
+    solution: "{\n  \"name\": \"search_products\",\n  \"description\": \"Шукає товари в каталозі магазину за текстовим запитом. Використовуй, коли користувач питає, чи є товар, або просить щось підібрати.\",\n  \"input_schema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"query\": { \"type\": \"string\", \"description\": \"Що шукати, напр. термокружка 450 мл\" },\n      \"max_price\": { \"type\": \"number\", \"description\": \"Максимальна ціна в гривнях, необов'язково\" }\n    },\n    \"required\": [\"query\"]\n  }\n}",
+  }}
+/>
+
+<Flashcards terms={["tool-use", "structured-outputs", "stop-reason", "json"]} />

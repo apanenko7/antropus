@@ -1,0 +1,155 @@
+import { firstRequestDemo } from "@/content/uk/demos/api";
+
+<TLDR>
+- Усе спілкування з Claude з коду йде через один ендпоінт — <Term id="messages-api" />: ти шлеш історію повідомлень, отримуєш відповідь.
+- Обов'язкові поля: `model`, <Term id="max-tokens" />, `messages`; інструкції — в окремому полі `system`.
+- API не пам'ятає розмову: кожен запит містить усю потрібну історію, а <Term id="api-key">ключ</Term> живе лише на сервері.
+</TLDR>
+
+## Як це влаштовано
+
+<Term id="api">API</Term> — це спосіб викликати Claude з власного застосунку: бота, сервісу, скрипта. Замість чату в браузері твій код надсилає HTTP-запит і отримує JSON. Оплата — за <Term id="token">токени</Term> входу й виходу.
+
+Для TypeScript є офіційний <Term id="sdk">SDK</Term> — `@anthropic-ai/sdk`. Він сам підставляє ключ із середовища, робить повтори при тимчасових помилках і дає типи.
+
+<Demo script={firstRequestDemo} />
+
+## Мінімальний запит
+
+```ts
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic(); // бере ANTHROPIC_API_KEY із середовища
+
+const response = await client.messages.create({
+  model: "claude-opus-5-5",
+  max_tokens: 16000,
+  system: "Ти — помічник служби підтримки. Відповідай коротко, українською.",
+  messages: [{ role: "user", content: "Яка столиця України?" }],
+});
+
+for (const block of response.content) {
+  if (block.type === "text") console.log(block.text);
+}
+```
+
+| Поле | Навіщо |
+| --- | --- |
+| `model` | яка модель відповідає; за замовчуванням бери `claude-opus-5-5` |
+| `max_tokens` | стеля довжини відповіді (обов'язкове) |
+| `system` | <Term id="system-prompt">системний промпт</Term>: роль, правила, тон |
+| `messages` | історія: чергуються `user` і `assistant` |
+
+У відповіді дивись на три речі: `content` (масив блоків — текст, виклики інструментів), <Term id="stop-reason" /> і `usage` (скільки токенів витрачено).
+
+## Розмова = ти передаєш історію
+
+API **stateless**: він не пам'ятає попередні запити. Щоб продовжити діалог, надсилаєш усю історію знову:
+
+```ts
+const messages = [
+  { role: "user", content: "Мене звати Оля." },
+  { role: "assistant", content: "Привіт, Олю!" },
+  { role: "user", content: "Як мене звати?" },
+];
+```
+
+<Callout type="warn" title="Без «підказки» відповіді">
+На нових моделях (Claude 4.6 і новіші) не можна закінчувати `messages` повідомленням `assistant`, щоб «почати відповідь за модель» (<Term id="prefill">prefill</Term>) — API поверне помилку 400. Формат задавай інструкцією або через <Term id="structured-outputs" />.
+</Callout>
+
+## Ключ і безпека
+
+- Ключ створюєш у Console і кладеш у змінну `ANTHROPIC_API_KEY` на сервері.
+- **Ніколи** не вшивай ключ у фронтенд: будь-хто відкриє DevTools і витратить твої гроші.
+- Браузер ходить до твого бекенду, бекенд — до Claude.
+
+<DoDont
+  dont={["new Anthropic({ apiKey: \"sk-ant-…\" }) прямо в коді", "Виклик API з React-компонента в браузері", "Ключ у репозиторії, навіть приватному"]}
+  doThis={["new Anthropic() + змінна середовища", "Серверний маршрут /api/… між браузером і Claude", ".env.local у .gitignore, ключі в секретах хостингу"]}
+/>
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "api-messages-1",
+      type: "single",
+      question: "Які поля обов'язкові в запиті messages.create?",
+      options: [
+        { text: "model, max_tokens, messages", correct: true },
+        { text: "model, system, temperature" },
+        { text: "prompt, max_tokens" },
+        { text: "messages і api_key у тілі запиту" },
+      ],
+      explain: "Без model, max_tokens і messages запит не пройде. system — опційне, а ключ передається заголовком (SDK робить це сам).",
+    },
+    {
+      id: "api-messages-2",
+      type: "single",
+      question: "Сценарій: чат-бот «забуває», що користувач щойно назвав своє ім'я. Код шле в API лише останнє повідомлення. Що виправити?",
+      options: [
+        { text: "Надсилати в messages усю історію розмови", correct: true },
+        { text: "Збільшити max_tokens" },
+        { text: "Перейти на потужнішу модель" },
+        { text: "Додати ім'я в api-ключ сесії" },
+      ],
+      explain: "API stateless: модель бачить лише те, що в поточному запиті. Історію зберігає і передає твій застосунок.",
+    },
+    {
+      id: "api-messages-3",
+      type: "findbug",
+      question: "Що в цьому коді небезпечно?",
+      code: "// components/Chat.tsx (виконується в браузері)",
+      lines: [
+        "import Anthropic from \"@anthropic-ai/sdk\";",
+        "const client = new Anthropic({ apiKey: \"sk-ant-api03-…\" });",
+        "const res = await client.messages.create({",
+        "  model: \"claude-opus-5-5\", max_tokens: 1024,",
+        "  messages: [{ role: \"user\", content: text }],",
+        "});",
+      ],
+      bad: [1],
+      explain: "Ключ, вшитий у код браузерного компонента, бачить кожен відвідувач. Виклик має йти з сервера, ключ — зі змінної середовища.",
+    },
+    {
+      id: "api-messages-4",
+      type: "truefalse",
+      question: "Щоб модель точно почала відповідь з «{», на Claude Opus 5.5 можна додати в кінець messages повідомлення assistant з текстом «{».",
+      answer: false,
+      explain: "Prefill на моделях 4.6+ повертає 400. Для JSON використовуй structured outputs або чітку інструкцію.",
+    },
+    {
+      id: "api-messages-5",
+      type: "match",
+      question: "Зістав поле відповіді з тим, що в ньому",
+      pairs: [
+        ["content", "Масив блоків: текст, виклики інструментів"],
+        ["stop_reason", "Чому модель зупинилась"],
+        ["usage", "Скільки токенів витрачено"],
+        ["model", "Яка модель відповіла"],
+      ],
+      explain: "content читаєш, stop_reason перевіряєш, usage рахуєш у вартість.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "api-messages-task",
+    title: "Збери тіло запиту",
+    prompt: "Напиши JSON тіла запиту до Messages API: модель claude-opus-5-5, ліміт відповіді, системний промпт «перекладач з англійської на українську» і одне повідомлення користувача з текстом для перекладу.",
+    starter: "{\n  \"prompt\": \"Translate: Hello, world!\"\n}",
+    mono: true,
+    rules: [
+      { id: "json", type: "validJson", label: "Валідний JSON", hint: "Перевір лапки й коми: ключі та рядки в подвійних лапках, без коми після останнього елемента." },
+      { id: "keys", type: "jsonKeys", keys: ["model", "max_tokens", "messages"], label: "Є model, max_tokens і messages", hint: "Обов'язкові поля Messages API: model, max_tokens, messages. Поля prompt не існує." },
+      { id: "model", type: "includesAny", values: ["claude-opus-5-5"], label: "Модель claude-opus-5-5", hint: "Вкажи \"model\": \"claude-opus-5-5\"." },
+      { id: "system", type: "regex", pattern: "\"system\"\\s*:\\s*\"[^\"]{10,}\"", label: "Є системний промпт", hint: "Додай поле \"system\" з роллю перекладача." },
+      { id: "user", type: "regex", pattern: "\"role\"\\s*:\\s*\"user\"", label: "Повідомлення з role: user", hint: "У messages має бути об'єкт { \"role\": \"user\", \"content\": \"…\" }." },
+    ],
+    solution: "{\n  \"model\": \"claude-opus-5-5\",\n  \"max_tokens\": 1024,\n  \"system\": \"Ти — перекладач з англійської на українську. Повертай лише переклад.\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"Translate: Hello, world!\" }\n  ]\n}",
+  }}
+/>
+
+<Flashcards terms={["messages-api", "max-tokens", "api-key", "stop-reason", "sdk"]} />

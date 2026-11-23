@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
+import createMDX from "@next/mdx";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  pageExtensions: ["ts", "tsx", "md", "mdx"],
   turbopack: {
     rules: {
       "*.css": {
@@ -12,6 +13,16 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async redirects() {
+    return [{ source: "/", destination: "/uk", permanent: false }];
+  },
 };
 
-export default nextConfig;
+// Turbopack needs plugins as strings. remark-gfm adds tables, strikethrough, task lists.
+const withMDX = createMDX({
+  options: {
+    remarkPlugins: ["remark-gfm"],
+  },
+});
+
+export default withMDX(nextConfig);

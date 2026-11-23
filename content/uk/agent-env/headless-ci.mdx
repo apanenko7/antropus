@@ -1,0 +1,169 @@
+import { headlessDemo, githubMentionDemo } from "@/content/uk/demos/agent-env";
+
+<TLDR>
+- `claude -p "…"` запускає Claude Code без інтерфейсу: <Term id="headless" />-режим для скриптів і <Term id="ci" />.
+- `--output-format json` дає машинний результат, `--allowedTools` — рівно потрібні дозволи.
+- <Term id="github-actions" />: `anthropics/claude-code-action` відповідає на `@claude` у PR та issue або працює за розкладом.
+</TLDR>
+
+## Агент без інтерфейсу
+
+Інтерактивна сесія — це розмова. Але багато задач розмови не потребують: «поясни помилку збірки», «знайди опечатки в diff», «полагодь lint». Для них є прапорець `-p` (або `--print`):
+
+```bash
+claude -p "What does the auth module do?"
+```
+
+Claude Code виконує задачу, друкує результат і завершується. Код виходу `0` означає успіх, не нуль — збій, тож скрипт може на це реагувати.
+
+<Demo script={headlessDemo} />
+
+## Основні прапорці
+
+| Прапорець | Навіщо |
+| --- | --- |
+| `-p`, `--print` | Неінтерактивний запуск |
+| `--output-format text \| json \| stream-json` | Звичайний текст, JSON з `result`, `session_id` і вартістю, або потік подій |
+| `--json-schema '…'` | Відповідь за схемою: результат у полі `structured_output` |
+| `--allowedTools "Read,Edit,Bash"` | Інструменти, дозволені без запиту |
+| `--permission-mode acceptEdits` | Базовий режим дозволів для всього запуску |
+| `--append-system-prompt "…"` | Додаткові інструкції поверх стандартних |
+| `--continue`, `--resume <id>` | Продовжити попередню розмову |
+| `--bare` | Швидкий старт без автопідвантаження хуків, плагінів, MCP і CLAUDE.md (рекомендовано для скриптів і CI) |
+
+<Callout type="tip" title="Пайпи працюють">
+`-p` читає stdin, тож можна так: `git diff main | claude -p "знайди опечатки"`. Агенту навіть не потрібен дозвіл на Bash — дані вже прийшли на вхід.
+</Callout>
+
+Дозволи можна звужувати до конкретних команд: `--allowedTools "Bash(git diff *),Bash(git commit *)"`. Пробіл перед `*` важливий: без нього `git diff*` збігся б і з `git diff-index`.
+
+## Claude у GitHub Actions
+
+Найшвидше налаштування — команда `/install-github-app` в сесії Claude Code: вона встановить GitHub App, збереже секрет і створить workflow. Мінімальний ручний варіант:
+
+```yaml
+name: Claude Code
+on:
+  issue_comment:
+    types: [created]
+jobs:
+  claude:
+    if: contains(github.event.comment.body, '@claude')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+Без `prompt` дія чекає на `@claude` у коментарі (інтерактивний режим). З `prompt` — працює одразу на подію, наприклад за `schedule` (режим автоматизації).
+
+<Demo script={githubMentionDemo} />
+
+## Типові задачі для CI
+
+<Steps items={[
+  { title: "Рев'ю PR", text: "Коментарі до змін на кожен pull request." },
+  { title: "Фікс за коментарем", text: "«@claude виправ TypeError» — і коміт у гілці." },
+  { title: "Issue → PR", text: "Реалізувати задачу з опису issue." },
+  { title: "Регулярні звіти", text: "Щоденний підсумок комітів і відкритих issue за розкладом." },
+]} />
+
+## Гроші й безпека в CI
+
+<DoDont
+  dont={["Ключ API прямо в YAML", "Без ліміту ходів і таймауту", "Широкі права «про всяк випадок»", "Мерджити зміни агента без рев'ю"]}
+  doThis={["Секрет у GitHub Secrets: ${{ secrets.ANTHROPIC_API_KEY }}", "--max-turns у claude_args і timeout на job", "Лише потрібні permissions і --allowedTools", "Людина переглядає й мерджить"]}
+/>
+
+<Callout type="warn" title="Чужий репозиторій — чужі правила">
+Без `--bare` запуск `-p` підхоплює хуки й MCP-сервери з `.claude/settings.json` та `.mcp.json` репозиторію — навіть без діалогу довіри. У CI для чужого коду використовуй `--bare`.
+</Callout>
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "agentenv-headless-1",
+      type: "single",
+      question: "Який прапорець запускає Claude Code без інтерактивного інтерфейсу?",
+      options: [
+        { text: "-p (--print)", correct: true },
+        { text: "--headless" },
+        { text: "--ci" },
+        { text: "--no-ui" },
+      ],
+      explain: "Саме -p: виконати задачу, надрукувати результат і вийти.",
+    },
+    {
+      id: "agentenv-headless-2",
+      type: "match",
+      question: "З'єднай прапорець з його роллю",
+      pairs: [
+        ["--output-format json", "Результат, session_id і вартість у JSON"],
+        ["--allowedTools", "Інструменти без запиту дозволу"],
+        ["--resume", "Продовжити конкретну сесію"],
+        ["--bare", "Не підвантажувати хуки, плагіни, MCP і CLAUDE.md"],
+      ],
+      explain: "Ці чотири прапорці покривають більшість скриптових сценаріїв.",
+    },
+    {
+      id: "agentenv-headless-3",
+      type: "findbug",
+      question: "Що в цьому кроці workflow небезпечно?",
+      lines: [
+        "- uses: anthropics/claude-code-action@v1",
+        "  with:",
+        "    anthropic_api_key: sk-ant-api03-AbC123...",
+        "    claude_args: \"--max-turns 5\"",
+      ],
+      bad: [2],
+      explain: "Ключ API в репозиторії бачить кожен, хто має доступ до коду. Його місце — GitHub Secrets.",
+    },
+    {
+      id: "agentenv-headless-4",
+      type: "truefalse",
+      question: "Якщо в workflow немає input prompt, Claude Code Action чекає на згадку @claude у коментарі.",
+      answer: true,
+      explain: "Без prompt — інтерактивний режим з тригером @claude. З prompt — автоматичний запуск на подію.",
+    },
+    {
+      id: "agentenv-headless-5",
+      type: "multi",
+      question: "Як обмежити витрати агента в CI?",
+      options: [
+        { text: "--max-turns у claude_args", correct: true },
+        { text: "Таймаут на рівні job", correct: true },
+        { text: "Короткий і конкретний CLAUDE.md", correct: true },
+        { text: "Запускати workflow на кожен push у всі гілки" },
+      ],
+      explain: "Ліміт ходів, таймаут і стислий контекст зменшують і токени, і хвилини Actions.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "agentenv-headless-review",
+    title: "Напиши headless-команду для рев'ю",
+    prompt: "Напиши одну команду терміналу: передай diff гілки від main у Claude Code без інтерфейсу, додай інструкцію «ти рев'юер безпеки» через системний промпт і попроси результат у JSON.",
+    starter: "claude \"зроби рев'ю\"",
+    placeholder: "git diff main | claude -p …",
+    mono: true,
+    rules: [
+      { id: "print", type: "regex", pattern: "claude\\s+(.*\\s)?(-p|--print)\\b", label: "Використано -p / --print", hint: "Без -p Claude Code відкриє інтерактивну сесію." },
+      { id: "pipe", type: "regex", pattern: "git\\s+diff[^|]*\\|\\s*claude", label: "Diff передано через пайп", hint: "Передай зміни на вхід: git diff main | claude -p …" },
+      { id: "system", type: "includesAny", values: ["--append-system-prompt", "--system-prompt"], label: "Інструкції через системний промпт", hint: "Додай --append-system-prompt \"You are a security reviewer…\"" },
+      { id: "json", type: "regex", pattern: "--output-format(\\s+|=)(json|stream-json)", label: "Результат у JSON", hint: "Додай --output-format json." },
+    ],
+    solution: "git diff main | claude -p \"Review this diff for security issues. List each finding with file:line.\" --append-system-prompt \"You are a security engineer. Be concise.\" --output-format json",
+  }}
+/>
+
+<Flashcards terms={["headless", "ci", "github-actions", "permissions"]} />

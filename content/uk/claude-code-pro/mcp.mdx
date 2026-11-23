@@ -1,0 +1,165 @@
+import { mcpDemo } from "@/content/uk/demos/claude-code-pro";
+
+<TLDR>
+- <Term id="mcp" /> — стандарт, через який Claude Code отримує нові інструменти: Sentry, GitHub, Jira, бази даних, браузер. Додав сервер, і в агента з'явилися нові «руки».
+- Додаються командою `claude mcp add`: віддалені через `--transport http`, локальні через `--transport stdio` і команду після `--`.
+- Підключай лише сервери, яким довіряєш: сервер із зовнішнім контентом — шлях для <Term id="prompt-injection" />.
+</TLDR>
+
+## Що дає MCP
+
+Без MCP агент бачить лише твій код і термінал. З MCP він може сам подивитися помилки в Sentry, задачу в Jira, макет у Figma чи схему бази, тобто зробити те, що зазвичай ти копіюєш руками в чат.
+
+Кожен сервер додає набір інструментів з іменами виду `mcp__<server>__<tool>`, наприклад `mcp__sentry__search_issues`. Їх можна дозволяти чи забороняти в правилах <Term id="permissions">дозволів</Term> і ловити в <Term id="hook">хуках</Term>.
+
+<Demo script={mcpDemo} />
+
+## Як додати сервер
+
+**Віддалений** (хмарні сервіси, рекомендований варіант):
+
+```bash
+claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
+claude mcp add --transport http notion https://mcp.notion.com/mcp
+```
+
+**Локальний** <Term id="stdio" /> (програма на твоїй машині). Усе після `--` передається серверу як є:
+
+```bash
+claude mcp add --transport stdio db -- npx -y @bytebase/dbhub \
+  --dsn "postgresql://readonly:pass@localhost:5432/analytics"
+```
+
+Далі в сесії `/mcp`: там видно статус кожного сервера, там же проходиш вхід через OAuth, якщо сервер його просить. Корисні команди: `claude mcp list`, `claude mcp get <name>`, `claude mcp remove <name>`.
+
+<Callout type="tip" title="Для бази — read-only користувач">
+Агенту для аналізу даних не потрібні права на запис. Окремий користувач лише з читанням — найпростіший захист від випадкового `DROP`.
+</Callout>
+
+## Scopes: для кого сервер
+
+| Scope | Прапорець | Де зберігається | Хто бачить |
+| --- | --- | --- | --- |
+| local (типово) | `--scope local` | `~/.claude.json`, під шляхом проєкту | Лише ти, лише цей проєкт |
+| project | `--scope project` | `.mcp.json` у корені проєкту | Уся команда через git |
+| user | `--scope user` | `~/.claude.json` | Ти, у всіх проєктах |
+
+Командний `.mcp.json` виглядає так:
+
+```json
+{
+  "mcpServers": {
+    "sentry": {
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp"
+    },
+    "db": {
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub", "--dsn", "${DB_READONLY_URL}"]
+    }
+  }
+}
+```
+
+`${DB_READONLY_URL}` підставиться зі змінних середовища, тож пароль не потрапить у репозиторій. Сервери з `.mcp.json` Claude Code спершу попросить схвалити, перш ніж запускати.
+
+## Безпека
+
+<DoDont
+  dont={[
+    "Токени й паролі прямо в .mcp.json, який комітиться",
+    "Сервер з невідомого репозиторію «бо зручно»",
+    "Повні права до продакшн-бази",
+  ]}
+  doThis={[
+    "Секрети через ${VAR} і змінні середовища",
+    "Лише сервери, яким довіряєш; перевір, хто їх підтримує",
+    "Мінімальні права: read-only користувач, окремий токен",
+  ]}
+/>
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "ccpro-mcp-1",
+      type: "single",
+      question: "Як додати віддалений MCP-сервер за URL?",
+      options: [
+        { text: "claude mcp add --transport http sentry https://mcp.sentry.dev/mcp", correct: true },
+        { text: "claude install sentry" },
+        { text: "/mcp add https://mcp.sentry.dev/mcp" },
+        { text: "npm install mcp-sentry" },
+      ],
+      explain: "Віддалені сервери додаються через claude mcp add з --transport http, ім'ям і URL.",
+    },
+    {
+      id: "ccpro-mcp-2",
+      type: "match",
+      question: "Зістав scope і де живе налаштування",
+      pairs: [
+        ["local", "~/.claude.json, лише цей проєкт для тебе"],
+        ["project", ".mcp.json у репозиторії"],
+        ["user", "~/.claude.json, усі твої проєкти"],
+      ],
+      explain: "Лише project-scope потрапляє в репозиторій і дістається всій команді.",
+    },
+    {
+      id: "ccpro-mcp-3",
+      type: "truefalse",
+      question: "Щоб передати серверу власні прапорці (наприклад --dsn), їх пишуть після роздільника --.",
+      answer: true,
+      explain: "Усе після -- іде серверу без змін. Без роздільника Claude Code сприйме ці прапорці як свої.",
+    },
+    {
+      id: "ccpro-mcp-4",
+      type: "findbug",
+      question: "Цей .mcp.json комітиться в репозиторій. Який рядок небезпечний?",
+      lines: [
+        "{",
+        "  \"mcpServers\": {",
+        "    \"github\": {",
+        "      \"type\": \"http\",",
+        "      \"url\": \"https://api.githubcopilot.com/mcp/\",",
+        "      \"headers\": { \"Authorization\": \"Bearer ghp_9fK2xLq0exampleToken\" }",
+        "    }",
+        "  }",
+        "}",
+      ],
+      bad: [5],
+      explain: "Токен прямо у файлі потрапить у git. Використай змінну: \"Bearer ${GITHUB_PAT}\".",
+    },
+    {
+      id: "ccpro-mcp-5",
+      type: "multi",
+      question: "Що допомагає безпечно працювати з MCP?",
+      options: [
+        { text: "Підключати лише сервери, яким довіряєш", correct: true },
+        { text: "Read-only доступ до бази даних", correct: true },
+        { text: "Секрети через змінні середовища", correct: true },
+        { text: "Дозволити всі mcp-інструменти назавжди, щоб не питало" },
+      ],
+      explain: "Сервер, що тягне зовнішній контент, може принести prompt injection. Мінімальні права обмежують шкоду.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "ccpro-mcp-task",
+    title: "Напиши .mcp.json для команди",
+    prompt: "Опиши хоча б один MCP-сервер у форматі .mcp.json: віддалений (type + url) або локальний (command + args). Секрети — лише через ${VAR}, не прямо у файлі.",
+    starter: "{\n  \"servers\": {}\n}",
+    mono: true,
+    rules: [
+      { id: "json", type: "validJson", label: "Валідний JSON", hint: "Перевір лапки, коми й дужки. Без коментарів і зайвих ком." },
+      { id: "root", type: "jsonKeys", keys: ["mcpServers"], label: "Корінь — mcpServers", hint: "Ключ верхнього рівня має називатися саме \"mcpServers\"." },
+      { id: "server", type: "regex", pattern: "\"(url|command)\"\\s*:\\s*\"[^\"]+\"", label: "Сервер має url або command", hint: "Віддалений: \"type\": \"http\", \"url\": \"https://…\". Локальний: \"command\": \"npx\", \"args\": […]." },
+      { id: "remote-type", type: "regex", pattern: "\"command\"|\"type\"\\s*:\\s*\"(http|sse|stdio|ws)\"", label: "Для віддаленого вказано type", hint: "Для сервера з url додай \"type\": \"http\"." },
+      { id: "no-secrets", type: "notRegex", pattern: "(Bearer\\s+(?!\\$\\{)\\S{8,}|ghp_|sk-[A-Za-z0-9]|password=)", label: "Немає секретів прямо у файлі", hint: "Заміни токен на змінну: \"Bearer ${MY_TOKEN}\"." },
+    ],
+    solution: "{\n  \"mcpServers\": {\n    \"sentry\": {\n      \"type\": \"http\",\n      \"url\": \"https://mcp.sentry.dev/mcp\"\n    },\n    \"github\": {\n      \"type\": \"http\",\n      \"url\": \"https://api.githubcopilot.com/mcp/\",\n      \"headers\": { \"Authorization\": \"Bearer ${GITHUB_PAT}\" }\n    }\n  }\n}",
+  }}
+/>
+
+<Flashcards terms={["mcp", "stdio", "prompt-injection", "tool-use"]} />

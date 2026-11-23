@@ -1,0 +1,159 @@
+import { subagentDemo } from "@/content/uk/demos/claude-code-pro";
+
+<TLDR>
+- <Term id="subagent" /> — помічник із **власним** <Term id="context-window">контекстним вікном</Term>, системним промптом і набором інструментів. Головній сесії він повертає лише короткий підсумок.
+- Готові субагенти вже є: **Explore** (швидкий пошук, лише читання), **Plan** (дослідження в <Term id="plan-mode" />), **general-purpose**.
+- Свої описуєш markdown-файлом у `.claude/agents/`: <Term id="frontmatter" /> з `name`, `description`, `tools`, `model` + текст ролі.
+</TLDR>
+
+## Навіщо окремий контекст
+
+Пошук по великому проєкту — це десятки прочитаних файлів. Якщо їх читає головна сесія, контекст забивається сміттям, і на основну задачу лишається менше уваги. Субагент читає все у **своєму** вікні й повертає лише висновок.
+
+Субагент **не бачить** твоєї розмови. Claude пише йому коротке доручення, і той працює від нього. Тому корисно, щоб завдання було самодостатнім.
+
+<Demo script={subagentDemo} />
+
+## Вбудовані субагенти
+
+| Субагент | Що робить | Може змінювати файли? |
+| --- | --- | --- |
+| **Explore** | Швидко шукає й аналізує код, є рівні ретельності: quick, medium, very thorough | Ні, лише читання |
+| **Plan** | Дослідження для плану в plan mode | Ні, лише читання |
+| **general-purpose** | Складні багатокрокові задачі: і дослідити, і зробити | Так |
+
+Найчастіше Claude делегує сам. Можна й попросити прямо: «use a subagent to find all places where we call the payments API».
+
+## Свій субагент
+
+Файл `.claude/agents/code-reviewer.md` (для всієї команди) або `~/.claude/agents/code-reviewer.md` (для тебе в усіх проєктах):
+
+```markdown
+---
+name: code-reviewer
+description: Reviews code for quality and security. Use proactively after writing or modifying code.
+tools: Read, Glob, Grep
+model: sonnet
+---
+
+You are a senior code reviewer. Check correctness, security and naming.
+Reply with a list of issues, each with file:line and a suggested fix.
+```
+
+| Поле | Значення |
+| --- | --- |
+| `name` | Унікальний ідентифікатор. Обов'язкове |
+| `description` | Коли делегувати. Обов'язкове. «Use proactively» підштовхує Claude звертатися частіше |
+| `tools` | Список інструментів через кому. Якщо не вказати, успадковує всі |
+| `model` | `sonnet`, `opus`, `haiku`, `fable`, повний ID або `inherit` |
+
+Текст після frontmatter стає **системним промптом** субагента. Зміни у файлі підхоплюються зазвичай без перезапуску.
+
+<Callout type="tip" title="Мінімум прав">
+Рев'юеру не потрібні Edit і Write, досліднику — Bash. Обмежений `tools` = менше ризику, що субагент зробить зайве.
+</Callout>
+
+## Як викликати
+
+- **Автоматично:** Claude делегує за `description`.
+- **Словами:** «use the code-reviewer subagent on the auth changes».
+- **Через @:** `@agent-code-reviewer` у повідомленні.
+- **Уся сесія як цей агент:** `claude --agent code-reviewer`.
+
+<DoDont
+  dont={[
+    "Субагент на кожну дрібницю: доручення теж коштує часу",
+    "Розраховувати, що субагент «пам'ятає» розмову",
+    "Давати рев'юеру права на запис",
+  ]}
+  doThis={[
+    "Делегувати пошук, логи, рев'ю — все, що дає багато «шуму»",
+    "Писати самодостатні доручення: що шукати, де, що повернути",
+    "Обмежувати tools під роль",
+  ]}
+/>
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "ccpro-subagents-1",
+      type: "single",
+      question: "Головна перевага субагента для довгої сесії?",
+      options: [
+        { text: "Його проміжна робота не засмічує контекст головної сесії", correct: true },
+        { text: "Він завжди працює на найпотужнішій моделі" },
+        { text: "Він бачить усю історію розмови і нічого не забуває" },
+        { text: "Він не витрачає токенів" },
+      ],
+      explain: "Субагент працює у власному вікні й повертає лише підсумок, тож головний контекст лишається чистим.",
+    },
+    {
+      id: "ccpro-subagents-2",
+      type: "truefalse",
+      question: "Субагент бачить усю твою попередню розмову з Claude.",
+      answer: false,
+      explain: "Він отримує лише доручення, яке написав Claude. Тому задача для нього має бути самодостатньою.",
+    },
+    {
+      id: "ccpro-subagents-3",
+      type: "match",
+      question: "Який вбудований субагент для чого",
+      pairs: [
+        ["Explore", "Швидкий пошук по коду, лише читання"],
+        ["Plan", "Дослідження для плану в plan mode"],
+        ["general-purpose", "Багатокрокові задачі з діями"],
+      ],
+      explain: "Explore і Plan не можуть редагувати файли. general-purpose має всі інструменти субагентів.",
+    },
+    {
+      id: "ccpro-subagents-4",
+      type: "findbug",
+      question: "Що не так із цим субагентом для рев'ю?",
+      lines: [
+        "---",
+        "name: reviewer",
+        "description: Reviews code changes. Use after code is modified.",
+        "tools: Read, Grep, Glob, Edit, Write, Bash",
+        "model: sonnet",
+        "---",
+        "Review the changes and list issues with file:line.",
+      ],
+      bad: [3],
+      explain: "Рев'юеру не потрібні Edit, Write і Bash. Зайві права = ризик, що він почне «виправляти» сам. Досить Read, Grep, Glob.",
+    },
+    {
+      id: "ccpro-subagents-5",
+      type: "multi",
+      question: "Які задачі варто делегувати субагенту?",
+      options: [
+        { text: "Знайти всі місця використання API в 300 файлах", correct: true },
+        { text: "Проаналізувати довгий лог помилок", correct: true },
+        { text: "Незалежне рев'ю щойно написаного коду", correct: true },
+        { text: "Перейменувати одну змінну в одному файлі" },
+      ],
+      explain: "Субагенти виграють там, де багато читання чи потрібен «свіжий погляд». Дрібна правка швидша без делегування.",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "ccpro-subagents-task",
+    title: "Опиши свого субагента",
+    prompt: "Напиши файл субагента для .claude/agents/: frontmatter з name, description (коли делегувати), tools (лише потрібні) і model, а нижче — роль і формат відповіді. Наприклад: тест-раннер, рев'юер безпеки, дослідник документації.",
+    starter: "name: helper",
+    mono: true,
+    placeholder: "---\nname: ...\ndescription: ...\ntools: ...\nmodel: ...\n---\n\nYou are ...",
+    rules: [
+      { id: "fm", type: "frontmatter", keys: ["name", "description"], label: "Frontmatter з name і description", hint: "Обгорни поля рядками --- зверху й знизу, додай name: і description:." },
+      { id: "tools", type: "regex", pattern: "^tools:\\s*\\S", label: "Обмежено tools", hint: "Додай рядок tools: з потрібними інструментами, наприклад tools: Read, Grep, Glob." },
+      { id: "model", type: "regex", pattern: "^model:\\s*(sonnet|opus|haiku|fable|inherit|claude-)", label: "Вказано model", hint: "Додай model: sonnet, opus, haiku, fable або inherit." },
+      { id: "when", type: "regex", pattern: "description:.*(use |when|коли|після|after)", label: "Description каже, коли делегувати", hint: "Допиши в description, коли викликати: «Use after…», «Use when…»." },
+      { id: "role", type: "minWords", value: 25, label: "Є роль і формат відповіді (25+ слів)", hint: "Нижче frontmatter опиши, хто це і що він повертає." },
+    ],
+    solution: "---\nname: test-runner\ndescription: Runs the test suite and diagnoses failures. Use proactively after code changes.\ntools: Read, Grep, Glob, Bash\nmodel: haiku\n---\n\nYou run tests and explain failures. Run npm test, read the failing test and the code it covers.\nReply with: which tests failed, the most likely cause with file:line, and a one-line suggested fix. Do not edit files.",
+  }}
+/>
+
+<Flashcards terms={["subagent", "context-window", "frontmatter", "plan-mode"]} />

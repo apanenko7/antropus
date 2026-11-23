@@ -1,0 +1,170 @@
+import { skillDemo } from "@/content/uk/demos/claude-code-pro";
+
+<TLDR>
+- <Term id="skill" /> — папка з файлом `SKILL.md`: інструкція для повторюваного процесу, яку агент підвантажує, коли задача підходить, або ти запускаєш через `/назва`.
+- Claude завжди бачить лише короткий `description`, а повний текст читає за потреби. Це <Term id="progressive-disclosure" />: багато skills майже не займають контексту.
+- <Term id="claude-md" /> — для фактів, які потрібні завжди. Skill — для процедур, які потрібні іноді.
+</TLDR>
+
+## Що таке skill
+
+Ти втретє пояснюєш агенту, як у вас пишуться релізні нотатки чи робиться рев'ю? Це кандидат у skill. Ти описуєш процес **один раз** у файлі, і далі агент виконує його однаково щоразу.
+
+Skill — це папка, де головне — файл `SKILL.md`:
+
+```text
+.claude/skills/release-notes/
+├── SKILL.md        обов'язковий: інструкція
+├── template.md     шаблон, який читається за потреби
+└── scripts/
+    └── collect.sh  скрипт, який агент запускає, а не читає
+```
+
+<Demo script={skillDemo} />
+
+## Анатомія SKILL.md
+
+Згори — <Term id="frontmatter" /> між рядками `---`, далі звичайний markdown з інструкцією:
+
+```markdown
+---
+name: release-notes
+description: Write release notes from git history since the last tag. Use when preparing a release.
+disable-model-invocation: true
+---
+
+1. Find the last tag: git describe --tags --abbrev=0
+2. Read commits since it and group them: Нове / Виправлено / Інше
+3. Write in Ukrainian, max 10 bullets
+```
+
+| Поле | Навіщо |
+| --- | --- |
+| `name` | Ім'я команди в меню `/`. Якщо не вказати, береться назва папки |
+| `description` | Що робить і **коли** застосовувати. За ним Claude вирішує, чи підвантажити skill |
+| `disable-model-invocation: true` | Запускаєш лише ти, сам Claude не викличе. Для дій з наслідками: деплой, коміт |
+| `allowed-tools` | Інструменти, які можна без запиту дозволу під час цього запуску |
+| `argument-hint` | Підказка аргументу в автодоповненні, наприклад `[issue-number]` |
+
+<Callout type="tip" title="Description — найважливіший рядок">
+Claude бачить описи всіх skills і за ними вирішує, що підвантажити. Пиши не лише «що робить», а й «коли застосовувати»: «Use when preparing a release».
+</Callout>
+
+## Де лежать і як запускаються
+
+| Де | Шлях | Для кого |
+| --- | --- | --- |
+| Проєкт | `.claude/skills/<name>/SKILL.md` | Уся команда (комітиться в репозиторій) |
+| Особисто | `~/.claude/skills/<name>/SKILL.md` | Ти, у всіх проєктах |
+| Плагін | `<plugin>/skills/<name>/SKILL.md` | Хто встановив <Term id="plugin" />; виклик `/plugin-name:skill-name` |
+
+Запустити можна двома способами:
+
+- **Автоматично:** ти просиш «підготуй реліз», Claude бачить відповідний `description` і сам підвантажує skill.
+- **Вручну:** `/release-notes`. Аргументи доступні в тексті як `$ARGUMENTS` або `$0`, `$1`…
+
+Старі файли в `.claude/commands/` теж працюють як slash-команди, але для нового краще skills: вони підтримують додаткові файли.
+
+## Skill чи CLAUDE.md?
+
+<DoDont
+  dont={[
+    "Покроковий процес релізу в CLAUDE.md: він вантажиться в кожну задачу",
+    "Skill на 2000 рядків: усе в одному файлі",
+    "Description «helpful skill»: Claude не зрозуміє, коли його брати",
+  ]}
+  doThis={[
+    "CLAUDE.md: команди, конвенції, підводні камені, потрібні завжди",
+    "SKILL.md до ~500 рядків, деталі в окремих файлах із посиланнями",
+    "Description з тригером: «Use when reviewing a pull request»",
+  ]}
+/>
+
+<Callout type="pro" title="Додаткові файли — за посиланням">
+Щоб Claude знав про `reference.md` чи `examples.md`, згадай їх у `SKILL.md`: «For API details, see reference.md». Прочитає лише тоді, коли знадобиться.
+</Callout>
+
+<Quiz
+  title="Перевір себе"
+  questions={[
+    {
+      id: "ccpro-skills-1",
+      type: "single",
+      question: "За чим Claude вирішує, що skill треба підвантажити автоматично?",
+      options: [
+        { text: "За полем description у frontmatter", correct: true },
+        { text: "За назвою файлу SKILL.md" },
+        { text: "За кількістю рядків у skill" },
+        { text: "Skills ніколи не підвантажуються автоматично" },
+      ],
+      explain: "Описи всіх skills постійно в контексті. Якщо запит збігається з description, Claude підвантажує повний текст.",
+    },
+    {
+      id: "ccpro-skills-2",
+      type: "truefalse",
+      question: "Повний текст усіх SKILL.md постійно лежить у контексті, тому багато skills швидко його забивають.",
+      answer: false,
+      explain: "У контексті завжди лише короткі описи. Повний текст підвантажується тільки при виклику — це і є progressive disclosure.",
+    },
+    {
+      id: "ccpro-skills-3",
+      type: "match",
+      question: "Зістав шлях і хто отримає skill",
+      pairs: [
+        [".claude/skills/deploy/SKILL.md", "Уся команда через репозиторій"],
+        ["~/.claude/skills/deploy/SKILL.md", "Лише ти, у всіх проєктах"],
+        ["<plugin>/skills/deploy/SKILL.md", "Усі, хто встановив плагін"],
+      ],
+      explain: "Проєктні skills комітяться в репозиторій, особисті лежать у домашній папці, а плагіни роздають skills одним пакетом.",
+    },
+    {
+      id: "ccpro-skills-4",
+      type: "single",
+      question: "Skill робить деплой у продакшн. Яке поле варто додати?",
+      options: [
+        { text: "disable-model-invocation: true — запускатимеш лише ти вручну", correct: true },
+        { text: "user-invocable: false" },
+        { text: "Нічого, нехай Claude сам вирішує, коли деплоїти" },
+        { text: "argument-hint: [production]" },
+      ],
+      explain: "Для дій із наслідками краще, щоб skill запускався тільки свідомо через /deploy, а не тоді, коли модель вирішить, що час.",
+    },
+    {
+      id: "ccpro-skills-5",
+      type: "findbug",
+      question: "Що в цьому SKILL.md завадить Claude правильно його застосовувати?",
+      lines: [
+        "---",
+        "name: pr-review",
+        "description: Helpful skill",
+        "---",
+        "1. Read the diff: git diff main...HEAD",
+        "2. Check tests, security, naming",
+        "3. Reply with a checklist",
+      ],
+      bad: [2],
+      explain: "Опис «Helpful skill» не каже, що робить skill і коли його брати. Краще: «Review a pull request diff. Use when asked to review changes».",
+    },
+  ]}
+/>
+
+<Task
+  task={{
+    id: "ccpro-skills-task",
+    title: "Напиши свій SKILL.md",
+    prompt: "Опиши повторюваний процес як skill: frontmatter з name і description (де сказано, коли застосовувати), а нижче — нумеровані кроки. Наприклад: рев'ю PR, щотижневий звіт, оновлення залежностей.",
+    starter: "Зроби рев'ю коду",
+    mono: true,
+    placeholder: "---\nname: ...\ndescription: ...\n---\n\n1. ...",
+    rules: [
+      { id: "fm", type: "frontmatter", keys: ["name", "description"], label: "Є frontmatter з name і description", hint: "Почни файл з рядка ---, додай name: і description:, закрий рядком ---." },
+      { id: "when", type: "regex", pattern: "description:.*(use when|when |коли|для )", label: "Description каже, коли застосовувати skill", hint: "Допиши в description тригер: «Use when…» або «Коли…»." },
+      { id: "steps", type: "regex", pattern: "^\\s*\\d+\\.\\s+\\S", label: "Є нумеровані кроки", hint: "Опиши процес кроками: 1. … 2. … 3. …" },
+      { id: "detail", type: "minWords", value: 25, label: "Достатньо конкретики (25+ слів)", hint: "Додай деталей: які команди, що перевіряти, у якому форматі результат." },
+      { id: "short", type: "maxWords", value: 400, label: "Стисло (до 400 слів)", hint: "Skill має бути коротким. Деталі винось в окремі файли." },
+    ],
+    solution: "---\nname: pr-review\ndescription: Review the current branch before a pull request. Use when asked to review changes or before opening a PR.\nallowed-tools: Bash(git diff *) Bash(npm test *)\n---\n\n1. Get the diff: git diff main...HEAD\n2. Run the tests: npm test\n3. Check: tests cover new logic, no secrets or debug output, names are clear\n4. Reply in Ukrainian with a checklist: ✅ ok / ⚠️ fix, with file:line for every issue",
+  }}
+/>
+
+<Flashcards terms={["skill", "frontmatter", "progressive-disclosure", "claude-md", "slash-command"]} />
