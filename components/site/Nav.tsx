@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useApp } from "@/components/providers";
 import { AuthButton } from "@/components/site/AuthButton";
+import { OctoMark } from "@/components/ui/OctoMark";
 import { BookIcon, BoltIcon, GlossaryIcon, HomeIcon, UserIcon } from "@/components/ui/icons";
 import { useProgress } from "@/lib/progress/store";
 import { cn } from "@/lib/cn";
@@ -26,10 +27,7 @@ export function Logo() {
   const { locale, t } = useApp();
   return (
     <Link href={`/${locale}`} className="flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
-      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 3 30 27H2z" fill="var(--accent)" />
-        <path d="M16 11 23.5 24h-15z" fill="var(--bg)" />
-      </svg>
+      <OctoMark size={34} id="octo-logo" />
       <span>{t.siteName}</span>
     </Link>
   );

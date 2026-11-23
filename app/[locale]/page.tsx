@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContinueButton, ModuleRing } from "@/components/site/CourseProgress";
 import { BoltIcon, LockIcon } from "@/components/ui/icons";
+import { OctoMark } from "@/components/ui/OctoMark";
 import { flatLessons, getCourse, lessonHref, lessonKey } from "@/lib/course";
 import { getDictionary, isLocale } from "@/lib/i18n";
 
@@ -25,7 +26,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
           }}
           aria-hidden="true"
         />
-        <HeroMark />
+        <OctoMark size={150} id="octo-hero" className="drop-shadow-[0_18px_30px_rgb(255_138_31/0.35)]" />
         <p className="mt-6 text-sm font-bold uppercase tracking-[0.2em] text-accent">{t.home.heroKicker}</p>
         <h1 className="mt-3 max-w-3xl">
           {t.home.heroTitle}{" "}
@@ -92,24 +93,5 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         </div>
       </section>
     </div>
-  );
-}
-
-/** Big "?" mark in an orange triangle, inspired by the reference. */
-function HeroMark() {
-  return (
-    <svg width="132" height="120" viewBox="0 0 132 120" aria-hidden="true" className="drop-shadow-[0_18px_30px_rgb(255_138_31/0.35)]">
-      <defs>
-        <linearGradient id="tri" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#ffb057" />
-          <stop offset="1" stopColor="#ff6b00" />
-        </linearGradient>
-      </defs>
-      <path d="M66 6c4 0 6 2 8 5l50 88c3 6-1 13-8 13H16c-7 0-11-7-8-13l50-88c2-3 4-5 8-5z" fill="url(#tri)" transform="rotate(-8 66 60)" />
-      <path d="M22 96 64 22l44 76" fill="none" stroke="#fff" strokeOpacity="0.25" strokeWidth="2" transform="rotate(6 66 60)" />
-      <text x="66" y="92" textAnchor="middle" fontFamily="var(--font-unbounded)" fontWeight="700" fontSize="72" fill="#fff">
-        ?
-      </text>
-    </svg>
   );
 }
