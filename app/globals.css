@@ -246,6 +246,21 @@ h3 {
   }
 }
 
+/* Diagram connectors: dashes travel along the arrow. */
+@keyframes flowDash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.flow-dash {
+  animation: flowDash 1.4s linear infinite;
+}
+
+.flow-dash-rev {
+  animation: flowDash 1.4s linear infinite reverse;
+}
+
 @keyframes blink {
   50% {
     opacity: 0;
@@ -253,6 +268,11 @@ h3 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .flow-dash,
+  .flow-dash-rev {
+    animation: none;
+  }
+
   *,
   *::before,
   *::after {

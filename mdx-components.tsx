@@ -1,6 +1,7 @@
 import type { MDXComponents } from "mdx/types";
 import { Callout, DoDont, Steps, TLDR } from "@/components/learn/Blocks";
 import { Demo } from "@/components/learn/Demo";
+import { Cycle, Flow, Layers } from "@/components/learn/Diagrams";
 import { Flashcards } from "@/components/learn/Flashcards";
 import { PromptCompare } from "@/components/learn/PromptCompare";
 import { Quiz } from "@/components/learn/Quiz";
@@ -19,6 +20,9 @@ const components: MDXComponents = {
   Demo,
   PromptCompare,
   Flashcards,
+  Flow,
+  Cycle,
+  Layers,
 };
 
 export function useMDXComponents(): MDXComponents {

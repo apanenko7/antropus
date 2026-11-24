@@ -12,6 +12,17 @@ import { mcpDemo } from "@/content/uk/demos/claude-code-pro";
 
 Кожен сервер додає набір інструментів з іменами виду `mcp__<server>__<tool>`, наприклад `mcp__sentry__search_issues`. Їх можна дозволяти чи забороняти в правилах <Term id="permissions">дозволів</Term> і ловити в <Term id="hook">хуках</Term>.
 
+<Flow
+  title="Як агент дістається до сервісу"
+  nodes={[
+    { label: "Claude Code", sub: "MCP-клієнт" },
+    { label: "MCP-сервер", sub: "інструменти mcp__sentry__…", tone: "default" },
+    { label: "Сервіс", sub: "Sentry, Jira, Figma, БД" },
+  ]}
+  links={[{ dir: "↔", label: "виклик інструменту" }, { dir: "↔", label: "API сервісу" }]}
+  caption="Кожен виклик проходить через твої дозволи й хуки, як і будь-який інший інструмент."
+/>
+
 <Demo script={mcpDemo} />
 
 ## Як додати сервер

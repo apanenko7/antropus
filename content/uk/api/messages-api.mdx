@@ -46,6 +46,19 @@ for (const block of response.content) {
 
 API **stateless**: він не пам'ятає попередні запити. Щоб продовжити діалог, надсилаєш усю історію знову:
 
+<Flow
+  title="Один крок діалогу через API"
+  nodes={[
+    { label: "Історія", sub: "messages у твоєму коді" },
+    { label: "Запит", sub: "model, max_tokens, messages" },
+    { label: "Claude API", sub: "не пам'ятає попередніх запитів", tone: "default" },
+    { label: "Відповідь", sub: "content + usage" },
+  ]}
+  links={["→", { dir: "→", label: "HTTP" }, "→"]}
+  loop="Додаєш відповідь до історії і наступного разу шлеш усе знову"
+/>
+
+
 ```ts
 const messages = [
   { role: "user", content: "Мене звати Оля." },

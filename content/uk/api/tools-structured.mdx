@@ -10,6 +10,20 @@ import { toolsDemo } from "@/content/uk/demos/api";
 
 Модель не має доступу до твоєї бази чи сервісів. Але ти можеш дати їй **меню інструментів**:
 
+<Flow
+  title="Хто що робить у tool use"
+  nodes={[
+    { label: "Запит", sub: "messages + tools" },
+    { label: "Claude", sub: "обирає інструмент: tool_use" },
+    { label: "Твій код", sub: "викликає функцію" },
+    { label: "tool_result", sub: "з тим самим tool_use_id" },
+    { label: "Відповідь", sub: "текст для користувача" },
+  ]}
+  loop="Якщо потрібен ще інструмент, Claude знову повертає tool_use"
+  caption="Сам Claude нічого не виконує: він лише просить, а викликає функцію твій код."
+/>
+
+
 ```ts
 const tools = [
   {

@@ -16,6 +16,16 @@ import { harnessPartsDemo } from "@/content/uk/demos/agent-env";
 у чаті Claude.ai пише тобі код для копіювання, а в <Term id="claude-code" /> сам знаходить файл, змінює його й запускає тести. Модель та сама — harness різний.
 </Callout>
 
+<Flow
+  title="Модель + harness = агент"
+  nodes={[
+    { label: "Модель", sub: "текст на вході → текст на виході" },
+    { label: "Harness", sub: "цикл, інструменти, дозволи, пам'ять", tone: "default" },
+    { label: "Світ", sub: "файли, термінал, мережа" },
+  ]}
+  links={[{ dir: "↔", label: "промпт і виклики" }, { dir: "↔", label: "дії й результати" }]}
+/>
+
 ## З чого складається harness
 
 | Частина | Що робить | Як це в Claude Code |

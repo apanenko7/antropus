@@ -4,6 +4,7 @@ import { Caveat, Manrope, Unbounded } from "next/font/google";
 import { AppProviders } from "@/components/providers";
 import { AuthProvider } from "@/components/site/AuthProvider";
 import { BottomNav, Header } from "@/components/site/Nav";
+import { WaterBackground } from "@/components/site/WaterBackground";
 import { XpToast } from "@/components/site/XpToast";
 import { getGlossary } from "@/lib/course";
 import { getDictionary, isLocale, locales } from "@/lib/i18n";
@@ -41,6 +42,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   return (
     <html lang={locale} className={`${manrope.variable} ${unbounded.variable} ${caveat.variable} antialiased`}>
       <body className="min-h-dvh">
+        <WaterBackground />
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-accent focus:px-4 focus:py-2 focus:text-on-accent"

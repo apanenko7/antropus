@@ -10,6 +10,18 @@ import { hookDemo } from "@/content/uk/demos/claude-code-pro";
 
 «Після кожної правки запускай prettier» у CLAUDE.md спрацює… майже завжди. Хук `PostToolUse` спрацює **завжди**, бо його запускає Claude Code, а не модель. Тому все, що мусить відбуватися без винятків (форматування, заборони, сповіщення), виноси в хуки.
 
+<Flow
+  title="Де спрацьовують хуки в одному ході агента"
+  nodes={[
+    { label: "UserPrompt­Submit", sub: "ти надіслав повідомлення" },
+    { label: "PreToolUse", sub: "може заблокувати виклик" },
+    { label: "Інструмент", sub: "Edit, Bash, Write…", tone: "muted" },
+    { label: "PostToolUse", sub: "форматер, лінтер" },
+    { label: "Stop", sub: "агент закінчив відповідь" },
+  ]}
+  loop="Між першим і останнім кроком агент може викликати інструменти багато разів"
+/>
+
 <Demo script={hookDemo} />
 
 ## Основні події

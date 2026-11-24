@@ -55,6 +55,16 @@ console.log("\n", message.stop_reason, message.usage.output_tokens);
 
 У вебзастосунку ланцюжок такий: браузер ↔ твій сервер ↔ Claude. Сервер відкриває потік до API і пересилає шматки браузеру (наприклад, через `ReadableStream` у route handler). Ключ при цьому так само лишається на сервері.
 
+<Flow
+  title="Потік у вебзастосунку"
+  nodes={[
+    { label: "Браузер", sub: "показує текст по шматках" },
+    { label: "Твій сервер", sub: "тут живе API-ключ", tone: "default" },
+    { label: "Claude API", sub: "генерує відповідь" },
+  ]}
+  links={[{ dir: "↔", label: "ReadableStream" }, { dir: "↔", label: "messages.stream()" }]}
+/>
+
 <Quiz
   title="Перевір себе"
   questions={[
