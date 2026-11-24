@@ -1,13 +1,25 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/providers";
 import { CheckIcon, RestartIcon, XIcon } from "@/components/ui/icons";
 import type { TaskDef } from "@/content/types";
 import { btn, cn } from "@/lib/cn";
+import { parseLocal, removeLocal, useLocalRaw, writeLocal } from "@/lib/local";
 import { progress, useProgress } from "@/lib/progress/store";
 import { countWords, validate } from "@/lib/validation";
+
+const NL = "\n";
+
+/** XML tags the task talks about (prompt, hints, solution), offered as one-tap inserts. */
+function taskTags(task: TaskDef): string[] {
+  const text = [task.prompt, task.placeholder, task.solution, ...task.rules.map(r => r.hint)].join(" ");
+  const tags = new Set<string>();
+  for (const r of task.rules) if (r.type === "xmlTag") tags.add(r.tag);
+  for (const m of text.matchAll(/<([a-zA-Z][\w-]*)(?:\s[^<>]*)?>/g)) tags.add(m[1]);
+  return [...tags].slice(0, 6);
+}
 
 /**
  * Hands-on task: the learner writes or fixes a prompt / config,
@@ -17,8 +29,45 @@ export function Task({ task }: { task: TaskDef }) {
   const { t } = useApp();
   const { tasks } = useProgress();
   const id = useId();
-  const [value, setValue] = useState(task.starter ?? "");
+  const starter = task.starter ?? "";
+  const draftKey = `task-draft:${task.id}`;
+  // The saved draft (read after hydration) is the starting value until the learner types.
+  const stored = parseLocal<string>(useLocalRaw(draftKey));
+  const [edited, setEdited] = useState<string | null>(null);
+  const value = edited ?? (typeof stored === "string" ? stored : starter);
   const [checked, setChecked] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const pendingCaret = useRef<number | null>(null);
+  const tags = useMemo(() => (task.mono ? [] : taskTags(task)), [task]);
+
+  const setValue = (next: string) => {
+    setEdited(next);
+    if (next === starter) removeLocal(draftKey);
+    else writeLocal(draftKey, next);
+  };
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (el && pendingCaret.current !== null) {
+      el.setSelectionRange(pendingCaret.current, pendingCaret.current);
+      pendingCaret.current = null;
+    }
+  }, [value]);
+
+  /** Wrap the selection in <tag>…</tag>, or insert an empty pair with the caret inside. */
+  const insertTag = (tag: string) => {
+    const el = inputRef.current;
+    const start = el?.selectionStart ?? value.length;
+    const end = el?.selectionEnd ?? value.length;
+    const selected = value.slice(start, end);
+    const before = value.slice(0, start);
+    const head = `${before}${before && !before.endsWith(NL) ? NL : ""}<${tag}>${NL}${selected}`;
+    pendingCaret.current = head.length;
+    setValue(`${head}${NL}</${tag}>${value.slice(end)}`);
+    setChecked(false);
+    el?.focus();
+  };
+
   const [showSolution, setShowSolution] = useState(false);
   const live = useMemo(() => validate(task.rules, value), [task.rules, value]);
   const doneBefore = Boolean(tasks[task.id]);
@@ -48,7 +97,25 @@ export function Task({ task }: { task: TaskDef }) {
       <label htmlFor={`${id}-input`} className="sr-only">
         {t.task.yourAnswer}
       </label>
+      {tags.length ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted">{t.task.insertTag}:</span>
+          {tags.map(tag => (
+            <button
+              key={tag}
+              type="button"
+              // Keep focus (and the phone keyboard) on the textarea.
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => insertTag(tag)}
+              className="min-h-9 rounded-full border border-accent/40 bg-accent-soft px-3 font-mono text-sm text-accent transition hover:bg-accent hover:text-on-accent active:scale-95"
+            >
+              {`<${tag}>`}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <textarea
+        ref={inputRef}
         id={`${id}-input`}
         value={value}
         onChange={e => {
@@ -63,7 +130,10 @@ export function Task({ task }: { task: TaskDef }) {
           task.mono && "font-mono text-sm",
         )}
       />
-      <p className="mt-1.5 text-right text-xs text-muted tabular-nums">{countWords(value)} слів</p>
+      <p className="mt-1.5 flex justify-between gap-3 text-xs text-muted">
+        <span>{t.task.draftSaved}</span>
+        <span className="tabular-nums">{countWords(value)} слів</span>
+      </p>
 
       <div className="mt-3">
         <p className="text-sm font-bold uppercase tracking-wider text-muted">{t.task.criteria}</p>

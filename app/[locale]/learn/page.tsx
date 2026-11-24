@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CourseSummary, LessonCheck, ModuleRing } from "@/components/site/CourseProgress";
+import { CourseSummary, DoneFade, LessonCheck, ModuleRing } from "@/components/site/CourseProgress";
 import { LockIcon } from "@/components/ui/icons";
 import { getCourse, lessonHref, lessonKey } from "@/lib/course";
 import { getDictionary, isLocale } from "@/lib/i18n";
@@ -54,6 +54,7 @@ export default async function CoursePage({ params }: PageProps<"/[locale]/learn"
                   <ol className="mt-4 space-y-3">
                     {mod.lessons.map((lesson, i) => (
                       <li key={lesson.slug}>
+                        <DoneFade keys={[lessonKey(mod.slug, lesson.slug)]}>
                         <Link
                           href={lessonHref(locale, mod.slug, lesson.slug)}
                           className="card flex items-center gap-4 p-4 transition hover:-translate-y-0.5 hover:bg-surface-2"
@@ -68,6 +69,7 @@ export default async function CoursePage({ params }: PageProps<"/[locale]/learn"
                           </span>
                           <LessonCheck lessonKey={lessonKey(mod.slug, lesson.slug)} />
                         </Link>
+                        </DoneFade>
                       </li>
                     ))}
                   </ol>

@@ -1,10 +1,12 @@
 "use client";
 
+import { MotionConfig, motion } from "motion/react";
 import { useState } from "react";
 import { useApp } from "@/components/providers";
 import { AccountCard } from "@/components/site/AuthButton";
 import { useAuth } from "@/components/site/AuthProvider";
-import { BoltIcon, FlameIcon } from "@/components/ui/icons";
+import { badgeIcon } from "@/components/ui/badge-icons";
+import { BoltIcon } from "@/components/ui/icons";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { btn, cn } from "@/lib/cn";
 import { level, progress, streak, useProgress } from "@/lib/progress/store";
@@ -75,23 +77,43 @@ export function ProfileView({ modules }: { modules: ModuleInfo[] }) {
       </div>
 
       <h2 className="mt-10">{t.profile.badges}</h2>
-      <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-        {badges.map(b => (
-          <li key={b.id} className={cn("card flex flex-col items-center p-4 text-center", !b.earned && "opacity-45")}>
-            <span
-              className={cn(
-                "grid size-14 place-items-center rounded-full",
-                b.earned ? "bg-accent text-on-accent shadow-[0_8px_24px_-8px_rgb(255_138_31/0.7)]" : "bg-surface-3 text-muted",
-              )}
-            >
-              <FlameIcon size={26} />
-            </span>
-            <p className="mt-3 font-bold">{b.title}</p>
-            <p className="mt-0.5 text-sm text-muted">{b.text}</p>
-            <span className="sr-only">{b.earned ? "отримано" : "ще не отримано"}</span>
-          </li>
-        ))}
-      </ul>
+      <MotionConfig reducedMotion="user">
+        <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {badges.map((b, i) => {
+            const Icon = badgeIcon(b.id);
+            return (
+              <motion.li
+                key={b.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: b.earned ? 1 : 0.45, y: 0 }}
+                transition={{ delay: i * 0.04, duration: 0.3 }}
+                className="card group flex flex-col items-center p-4 text-center"
+              >
+                <motion.span
+                  initial={b.earned ? { scale: 0.4, rotate: -20 } : false}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: 0.15 + i * 0.04, type: "spring", stiffness: 260, damping: 14 }}
+                  whileHover={b.earned ? { rotate: [0, -12, 10, -6, 0], scale: 1.08 } : undefined}
+                  className="grid"
+                >
+                  <span
+                    className={cn(
+                      "relative grid size-14 place-items-center overflow-hidden rounded-full",
+                      b.earned ? "badge-earned badge-shine bg-accent text-on-accent" : "bg-surface-3 text-muted",
+                    )}
+                    style={b.earned ? { animationDelay: `${(i % 5) * -0.6}s` } : undefined}
+                  >
+                    <Icon size={26} />
+                  </span>
+                </motion.span>
+                <p className="mt-3 font-bold">{b.title}</p>
+                <p className="mt-0.5 text-sm text-muted">{b.text}</p>
+                <span className="sr-only">{b.earned ? "отримано" : "ще не отримано"}</span>
+              </motion.li>
+            );
+          })}
+        </ul>
+      </MotionConfig>
 
       {!user ? <p className="mt-10 text-sm text-muted">{t.profile.guestNote}</p> : null}
       {!user ? (

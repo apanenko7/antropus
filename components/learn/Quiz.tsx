@@ -7,6 +7,7 @@ import { ArrowRightIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, RestartIcon,
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import type { QuizQuestion } from "@/content/types";
 import { btn, cn } from "@/lib/cn";
+import { parseLocal, removeLocal, useLocalRaw, writeLocal } from "@/lib/local";
 import { progress } from "@/lib/progress/store";
 
 /* Deterministic shuffle so server and client render the same order. */
@@ -34,21 +35,33 @@ type Status = "idle" | "correct" | "wrong";
 
 export function Quiz({ questions, title }: { questions: QuizQuestion[]; title?: string }) {
   const { t } = useApp();
-  const [index, setIndex] = useState(0);
-  const [results, setResults] = useState<boolean[]>([]);
-  const [round, setRound] = useState(0);
-  const done = index >= questions.length;
   const total = questions.length;
+  const [round, setRound] = useState(0);
+  // Position is remembered per quiz, so a refresh continues where the learner stopped.
+  const storeKey = `quiz:${questions.map(q => q.id).join(",")}`;
+  const raw = useLocalRaw(storeKey);
+  const saved = useMemo(() => {
+    const s = parseLocal<{ results: boolean[] }>(raw);
+    return Array.isArray(s?.results) ? s.results.slice(0, total).map(Boolean) : [];
+  }, [raw, total]);
+  const [own, setOwn] = useState<{ index: number; results: boolean[] } | null>(null);
+  // An answered question is not shown again after a refresh: continue with the next one.
+  const { index, results } = own ?? { index: saved.length, results: saved };
+  const done = index >= total;
   const score = results.filter(Boolean).length;
+
+  const update = (next: { index: number; results: boolean[] }) => {
+    setOwn(next);
+    if (next.results.length) writeLocal(storeKey, { results: next.results });
+    else removeLocal(storeKey);
+  };
 
   const onAnswered = (correct: boolean) => {
     const q = questions[index];
     progress.recordQuiz(q.id, correct);
-    setResults(r => {
-      const next = [...r];
-      next[index] = correct;
-      return next;
-    });
+    const next = [...results];
+    next[index] = correct;
+    update({ index, results: next });
   };
 
   return (
@@ -89,8 +102,7 @@ export function Quiz({ questions, title }: { questions: QuizQuestion[]; title?: 
             type="button"
             className={cn(btn.base, btn.ghost, "mt-5")}
             onClick={() => {
-              setIndex(0);
-              setResults([]);
+              update({ index: 0, results: [] });
               setRound(r => r + 1);
             }}
           >
@@ -112,7 +124,7 @@ export function Quiz({ questions, title }: { questions: QuizQuestion[]; title?: 
               number={index + 1}
               total={total}
               onAnswered={onAnswered}
-              onNext={() => setIndex(i => i + 1)}
+              onNext={() => update({ index: index + 1, results })}
               isLast={index === total - 1}
             />
           </motion.div>

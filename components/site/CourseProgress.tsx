@@ -46,6 +46,13 @@ export function LessonCheck({ lessonKey }: { lessonKey: string }) {
   );
 }
 
+/** Dims a card a little once all its lessons are done; full opacity again on hover/focus. */
+export function DoneFade({ keys, className, children }: { keys: string[]; className?: string; children: React.ReactNode }) {
+  const p = useProgress();
+  const done = keys.length > 0 && keys.every(k => p.lessons[k]);
+  return <div className={cn("transition-opacity", done && "opacity-85 hover:opacity-100 focus-within:opacity-100", className)}>{children}</div>;
+}
+
 export function ModuleRing({ keys, size = 56 }: { keys: string[]; size?: number }) {
   const p = useProgress();
   const done = keys.filter(k => p.lessons[k]).length;

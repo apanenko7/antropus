@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ContinueButton, ModuleRing } from "@/components/site/CourseProgress";
+import { ContinueButton, DoneFade, ModuleRing } from "@/components/site/CourseProgress";
 import { BoltIcon, LockIcon } from "@/components/ui/icons";
 import { OctoMark } from "@/components/ui/OctoMark";
 import { flatLessons, getCourse, lessonHref, lessonKey } from "@/lib/course";
@@ -26,7 +26,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
           }}
           aria-hidden="true"
         />
-        <OctoMark size={150} id="octo-hero" className="drop-shadow-[0_18px_30px_rgb(255_138_31/0.35)]" />
+        <OctoMark size={150} id="octo-hero" animated className="drop-shadow-[0_18px_30px_rgb(255_138_31/0.35)]" />
         <p className="mt-6 text-sm font-bold uppercase tracking-[0.2em] text-accent">{t.home.heroKicker}</p>
         <h1 className="mt-3 max-w-3xl">
           {t.home.heroTitle}{" "}
@@ -81,9 +81,11 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
               </>
             );
             return first ? (
-              <Link key={mod.slug} href={lessonHref(locale, mod.slug, first.slug)} className="card block p-5 transition hover:-translate-y-0.5">
-                {inner}
-              </Link>
+              <DoneFade key={mod.slug} keys={keys} className="h-full">
+                <Link href={lessonHref(locale, mod.slug, first.slug)} className="card block h-full p-5 transition hover:-translate-y-0.5">
+                  {inner}
+                </Link>
+              </DoneFade>
             ) : (
               <div key={mod.slug} className="card p-5 opacity-70">
                 {inner}

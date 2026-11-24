@@ -75,6 +75,8 @@ export const uk = {
     reset: "Скинути",
     criteria: "Критерії",
     yourAnswer: "Твоя відповідь",
+    insertTag: "Вставити тег",
+    draftSaved: "Чернетка зберігається на цьому пристрої",
   },
   demo: {
     play: "Відтворити",
