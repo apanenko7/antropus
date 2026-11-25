@@ -14,9 +14,9 @@
   --border: #3a3e44;
   --text: #f6f5f3;
   --muted: #a8abb2;
-  --accent: #a3e635;
-  --accent-strong: #7ccf14;
-  --accent-soft: rgb(163 230 53 / 0.14);
+  --accent: #518513;
+  --accent-strong: #518513;
+  --accent-soft: rgb(81 133 19 / 0.14);
   --on-accent: #13200a;
   --success: #34d399;
   --success-soft: rgb(52 211 153 / 0.12);
@@ -117,7 +117,7 @@ h3 {
 }
 
 @utility glow {
-  background: radial-gradient(60% 60% at 50% 0%, rgb(163 230 53 / 0.16), transparent 70%);
+  background: radial-gradient(60% 60% at 50% 0%, rgb(81 133 19 / 0.16), transparent 70%);
 }
 
 @layer components {
@@ -275,10 +275,10 @@ h3 {
 @keyframes badgeGlow {
   0%,
   100% {
-    box-shadow: 0 8px 24px -8px rgb(163 230 53 / 0.7);
+    box-shadow: 0 8px 24px -8px rgb(81 133 19 / 0.7);
   }
   50% {
-    box-shadow: 0 10px 30px -4px rgb(163 230 53 / 0.95);
+    box-shadow: 0 10px 30px -4px rgb(81 133 19 / 0.95);
   }
 }
 
