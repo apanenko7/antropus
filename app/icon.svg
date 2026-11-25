@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
   <defs>
     <linearGradient id="h" x1="0.2" y1="0" x2="0.8" y2="1">
-      <stop offset="0" stop-color="#ffb057"/>
-      <stop offset="1" stop-color="#ff6b00"/>
+      <stop offset="0" stop-color="#d4f77a"/>
+      <stop offset="1" stop-color="#7ccf14"/>
     </linearGradient>
     <linearGradient id="a" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ff7a10"/>
-      <stop offset="1" stop-color="#e05a00"/>
+      <stop offset="0" stop-color="#9be33a"/>
+      <stop offset="1" stop-color="#5ea010"/>
     </linearGradient>
   </defs>
   <g fill="none" stroke="url(#a)" stroke-width="10" stroke-linecap="round">

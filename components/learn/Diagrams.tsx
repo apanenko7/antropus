@@ -186,8 +186,8 @@ export function Cycle({ title, nodes, center, caption }: { title?: string; nodes
             <path d="M1 1 L8 5 L1 9" className="fill-none stroke-accent" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </marker>
           <radialGradient id="cycle-glow">
-            <stop offset="0" stopColor="#ff8a1f" stopOpacity="0.18" />
-            <stop offset="1" stopColor="#ff8a1f" stopOpacity="0" />
+            <stop offset="0" stopColor="#a3e635" stopOpacity="0.18" />
+            <stop offset="1" stopColor="#a3e635" stopOpacity="0" />
           </radialGradient>
         </defs>
         <circle cx={C} cy={C} r={R - 40} fill="url(#cycle-glow)" />

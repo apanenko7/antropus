@@ -1,6 +1,6 @@
 /** UI strings (not lesson content). Add messages/en.ts with the same shape for English. */
 export const uk = {
-  siteName: "Antropus",
+  siteName: "Atropus",
   tagline: "Claude, промпти і Claude Code — коротко, по ділу й з практикою",
   nav: {
     home: "Головна",
@@ -111,6 +111,16 @@ export const uk = {
     resetConfirm: "Точно скинути? Натисни ще раз",
     guestNote: "Без входу прогрес зберігається лише в цьому браузері.",
     badges: "Нагороди",
+    deleteAccount: "Видалити акаунт",
+    deleteConfirm: "Акаунт і весь прогрес буде видалено назавжди. Натисни ще раз",
+    deleting: "Видаляємо…",
+    deleteFailed: "Не вдалося видалити акаунт. Спробуй ще раз або напиши нам",
+    deleteNote: "Видалення прибирає акаунт Atropus і збережений прогрес з наших серверів. Сам Google-акаунт не змінюється.",
+  },
+  footer: {
+    disclaimer:
+      "Atropus — незалежний освітній проєкт, не пов'язаний з Anthropic і не схвалений нею. Claude, Claude Code та Anthropic — торговельні марки Anthropic PBC.",
+    privacy: "Конфіденційність і умови",
   },
   auth: {
     signIn: "Увійти через Google",

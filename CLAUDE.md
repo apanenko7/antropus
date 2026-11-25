@@ -1,4 +1,4 @@
-# Antropus
+# Atropus
 
 Interactive course on Claude, prompting and Claude Code. Ukrainian first (English planned), dark mobile-first UI, Next.js 16.
 

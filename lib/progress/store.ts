@@ -12,6 +12,7 @@ export type { ProgressState } from "@/lib/progress/model";
  * and the Firestore snapshot replaces the local state.
  */
 
+// Storage key kept from the old name "Antropus" so guests keep their progress.
 const KEY = "antropus:progress:v1";
 
 let state: ProgressState = EMPTY_PROGRESS;

@@ -1,5 +1,5 @@
 /**
- * Brand mark: an octopus whose head is the orange triangle.
+ * Brand mark: an octopus whose head is the lime triangle.
  * Plain colours (no CSS variables) so the same drawing works as app/icon.svg.
  * `id` keeps gradient ids unique when the mark is rendered more than once on a page.
  * `animated` makes it bob, sway its tentacles and blink (CSS in globals.css).
@@ -28,12 +28,12 @@ export function OctoMark({
     >
       <defs>
         <linearGradient id={`${id}-head`} x1="0.2" y1="0" x2="0.8" y2="1">
-          <stop offset="0" stopColor="#ffb057" />
-          <stop offset="1" stopColor="#ff6b00" />
+          <stop offset="0" stopColor="#d4f77a" />
+          <stop offset="1" stopColor="#7ccf14" />
         </linearGradient>
         <linearGradient id={`${id}-arm`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ff7a10" />
-          <stop offset="1" stopColor="#e05a00" />
+          <stop offset="0" stopColor="#9be33a" />
+          <stop offset="1" stopColor="#5ea010" />
         </linearGradient>
       </defs>
       {/* Tentacles (behind the head) */}

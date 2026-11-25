@@ -20,9 +20,10 @@ interface ModuleInfo {
 export function ProfileView({ modules }: { modules: ModuleInfo[] }) {
   const { t } = useApp();
   const p = useProgress();
-  const { user } = useAuth();
+  const { user, deleteAccount } = useAuth();
   // Reset is guest-only: a signed-in account's progress lives on the server.
   const [confirm, setConfirm] = useState(false);
+  const [deleteState, setDeleteState] = useState<"idle" | "confirm" | "deleting" | "failed">("idle");
   const lv = level(p.xp);
   const lessonsDone = Object.keys(p.lessons).length;
   const quizzesOk = Object.values(p.quizzes).filter(Boolean).length;
@@ -130,6 +131,30 @@ export function ProfileView({ modules }: { modules: ModuleInfo[] }) {
         >
           {confirm ? t.profile.resetConfirm : t.profile.reset}
         </button>
+      ) : null}
+
+      {user ? (
+        <div className="mt-12 border-t border-line/60 pt-6">
+          <p className="text-sm text-muted">{t.profile.deleteNote}</p>
+          <button
+            type="button"
+            disabled={deleteState === "deleting"}
+            className={cn(btn.base, deleteState === "confirm" ? "bg-danger text-bg" : btn.subtle, "mt-3 px-4")}
+            onClick={async () => {
+              if (deleteState !== "confirm") return setDeleteState("confirm");
+              setDeleteState("deleting");
+              setDeleteState((await deleteAccount()) ? "idle" : "failed");
+            }}
+            onBlur={() => setDeleteState(s => (s === "confirm" ? "idle" : s))}
+          >
+            {deleteState === "confirm" ? t.profile.deleteConfirm : deleteState === "deleting" ? t.profile.deleting : t.profile.deleteAccount}
+          </button>
+          {deleteState === "failed" ? (
+            <p role="alert" className="mt-2 text-sm text-danger">
+              {t.profile.deleteFailed}
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </>
   );

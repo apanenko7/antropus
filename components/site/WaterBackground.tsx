@@ -22,7 +22,7 @@ interface Wave {
 const WAVES: Wave[] = [
   { level: 0.7, amp: 14, len: 520, speed: 0.18, fill: "rgb(70 120 170 / 0.05)" },
   { level: 0.76, amp: 11, len: 380, speed: -0.26, fill: "rgb(60 110 160 / 0.06)", line: "rgb(140 190 230 / 0.12)" },
-  { level: 0.82, amp: 9, len: 300, speed: 0.34, fill: "rgb(40 80 120 / 0.1)", line: "rgb(255 138 31 / 0.25)" },
+  { level: 0.82, amp: 9, len: 300, speed: 0.34, fill: "rgb(40 80 120 / 0.1)", line: "rgb(163 230 53 / 0.25)" },
 ];
 
 const FRAME_MS = 1000 / 30;

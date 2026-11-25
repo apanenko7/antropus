@@ -1,4 +1,4 @@
-# Antropus
+# Atropus
 
 Interactive course (Ukrainian first) on Claude, prompting and Claude Code: short lessons, inline term tooltips, animated demos, quizzes and hands-on tasks with instant validation. Dark theme, mobile-first.
 

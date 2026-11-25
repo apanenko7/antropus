@@ -37,7 +37,7 @@ export function XpToast() {
             initial={{ opacity: 0, y: -12, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8 }}
-            className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 font-display text-sm font-bold text-on-accent shadow-[0_10px_30px_-10px_rgb(255_138_31/0.8)]"
+            className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 font-display text-sm font-bold text-on-accent shadow-[0_10px_30px_-10px_rgb(163_230_53/0.8)]"
           >
             <BoltIcon size={16} />+{t.amount} XP
           </motion.div>

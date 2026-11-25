@@ -47,3 +47,11 @@ next-env.d.ts
 # firebase service account keys (secrets)
 *service-account*.json
 *firebase-adminsdk*.json
+
+# Android app (Bubblewrap): build output and signing keys never go into git
+/android/app/build/
+/android/.gradle/
+/android/**/*.aab
+/android/**/*.apk
+*.keystore
+*.jks

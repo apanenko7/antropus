@@ -4,7 +4,7 @@ Date: 2026-11-23
 
 ## Status
 
-Accepted
+Accepted. The accent colour is superseded by ADR-0011 (lime instead of orange).
 
 ## Context
 

@@ -4,6 +4,7 @@ import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedi
 import { doc, onSnapshot } from "firebase/firestore";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getFirebase } from "@/lib/firebase/client";
+import { clearLocal } from "@/lib/local";
 import type { ProgressAction, ProgressState } from "@/lib/progress/model";
 import { progress } from "@/lib/progress/store";
 
@@ -16,6 +17,8 @@ interface AuthContextValue {
   sync: SyncStatus;
   signIn: () => Promise<void>;
   signOutUser: () => Promise<void>;
+  /** Deletes the account and its progress on the server, then clears this browser. Resolves false on failure. */
+  deleteAccount: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -124,7 +127,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     progress.reset();
   }, []);
 
-  const value = useMemo(() => ({ user, ready, sync, signIn, signOutUser }), [user, ready, sync, signIn, signOutUser]);
+  const deleteAccount = useCallback(async () => {
+    const current = getFirebase().auth.currentUser;
+    if (!current) return false;
+    // Stop forwarding actions first, so a queued write can't recreate the deleted document.
+    progress.setSyncer(null);
+    try {
+      const token = await current.getIdToken();
+      const res = await fetch("/api/account", { method: "DELETE", headers: { authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      setSync("error");
+      return false;
+    }
+    // The Auth user is already gone on the server; signing out drops the cached session.
+    await signOut(getFirebase().auth).catch(() => {});
+    clearLocal();
+    progress.reset();
+    return true;
+  }, []);
+
+  const value = useMemo(
+    () => ({ user, ready, sync, signIn, signOutUser, deleteAccount }),
+    [user, ready, sync, signIn, signOutUser, deleteAccount],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

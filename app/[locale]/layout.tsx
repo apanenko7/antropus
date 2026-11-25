@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Caveat, Manrope, Unbounded } from "next/font/google";
 import { AppProviders } from "@/components/providers";
 import { AuthProvider } from "@/components/site/AuthProvider";
+import { Footer } from "@/components/site/Footer";
 import { BottomNav, Header } from "@/components/site/Nav";
 import { WaterBackground } from "@/components/site/WaterBackground";
 import { XpToast } from "@/components/site/XpToast";
@@ -25,6 +26,7 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
   return {
     title: { default: `${t.siteName} — ${t.tagline}`, template: `%s · ${t.siteName}` },
     description: t.home.heroText,
+    icons: { apple: "/icons/apple-touch-icon.png" },
   };
 }
 
@@ -53,9 +55,10 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
           <AuthProvider>
             <Header />
             <XpToast />
-            <main id="main" className="pb-28 md:pb-16">
+            <main id="main" className="pb-12 md:pb-16">
               {children}
             </main>
+            <Footer locale={locale} t={t} />
             <BottomNav />
           </AuthProvider>
         </AppProviders>

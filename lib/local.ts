@@ -6,6 +6,7 @@
 
 import { useSyncExternalStore } from "react";
 
+// Kept from the old name "Antropus": changing it would wipe guests' drafts and progress.
 const PREFIX = "antropus:";
 
 const noopSubscribe = () => () => {};
@@ -58,6 +59,16 @@ export function writeLocal(key: string, value: unknown) {
 export function removeLocal(key: string) {
   try {
     window.localStorage.removeItem(PREFIX + key);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** Removes every key this module wrote (drafts, quiz positions): used when an account is deleted. */
+export function clearLocal() {
+  try {
+    const keys = Object.keys(window.localStorage).filter(k => k.startsWith(PREFIX));
+    keys.forEach(k => window.localStorage.removeItem(k));
   } catch {
     /* storage unavailable */
   }

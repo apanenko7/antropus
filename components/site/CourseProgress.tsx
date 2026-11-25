@@ -82,7 +82,7 @@ export function CourseSummary({ keys }: { keys: string[] }) {
   );
 }
 
-/** Thin orange bar under the header showing how far the lesson is read. */
+/** Thin accent bar under the header showing how far the lesson is read. */
 export function ReadingProgress() {
   const { t } = useApp();
   const [v, setV] = useState(0);

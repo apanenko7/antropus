@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [{ source: "/", destination: "/uk", permanent: false }];
   },
+  async rewrites() {
+    // Android app (TWA) verification; see app/api/assetlinks/route.ts.
+    return [{ source: "/.well-known/assetlinks.json", destination: "/api/assetlinks" }];
+  },
 };
 
 // Turbopack needs plugins as strings. remark-gfm adds tables, strikethrough, task lists.
