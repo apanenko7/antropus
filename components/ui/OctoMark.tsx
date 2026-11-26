@@ -28,12 +28,12 @@ export function OctoMark({
     >
       <defs>
         <linearGradient id={`${id}-head`} x1="0.2" y1="0" x2="0.8" y2="1">
-          <stop offset="0" stopColor="#d4f77a" />
-          <stop offset="1" stopColor="#7ccf14" />
+          <stop offset="0" stopColor="#c4e38f" />
+          <stop offset="1" stopColor="#78a83c" />
         </linearGradient>
         <linearGradient id={`${id}-arm`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#9be33a" />
-          <stop offset="1" stopColor="#5ea010" />
+          <stop offset="0" stopColor="#93bf55" />
+          <stop offset="1" stopColor="#5d8a2b" />
         </linearGradient>
       </defs>
       {/* Tentacles (behind the head) */}

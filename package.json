@@ -9,11 +9,13 @@
   "overrides": {
     "jwks-rsa": {
       "jose": "5.10.0"
-    }
+    },
+    "@grpc/grpc-js": "^1.14.7"
   },
   "pnpm": {
     "overrides": {
-      "jwks-rsa>jose": "5.10.0"
+      "jwks-rsa>jose": "5.10.0",
+      "@grpc/grpc-js@<1.13.6": "^1.14.7"
     }
   },
   "scripts": {

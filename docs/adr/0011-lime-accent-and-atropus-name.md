@@ -12,7 +12,7 @@ Before publishing to Google Play the project was checked for trademark and store
 
 ## Decision
 
-- Accent colour is lime: `--accent #a3e635`, `--accent-strong #7ccf14`, dark text on it (`--on-accent #13200a`). The logo and the icons use the same lime gradient.
+- Accent colour is lime: `--accent #97c45a`, `--accent-strong #86b34a` (a softer lime, 8.3:1 on the background), dark text on it (`--on-accent #13200a`). The logo and the icons use the same lime gradient.
 - `--success` moves to emerald (`#34d399`) so "correct" states stay distinct from the brand colour.
 - The product name is "Atropus" (the "A" echoes the triangle head of the octopus logo). The footer and the privacy page keep the "not affiliated with Anthropic" notice.
 - Internal identifiers keep the old spelling: localStorage keys and events (`antropus:*`), so guests keep their progress, and the Firebase project id `antropus-52cbe`, which cannot be renamed.

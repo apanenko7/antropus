@@ -43,7 +43,7 @@ await square(join(store, "play-icon-512.png"), 512, { scale: 0.72, background: B
 const feature = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500">
   <defs>
     <radialGradient id="g" cx="0.3" cy="0.5" r="0.6">
-      <stop offset="0" stop-color="#a3e635" stop-opacity="0.28"/>
+      <stop offset="0" stop-color="#97c45a" stop-opacity="0.28"/>
       <stop offset="1" stop-color="${BG}" stop-opacity="0"/>
     </radialGradient>
   </defs>

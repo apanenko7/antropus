@@ -21,12 +21,12 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
           className="pointer-events-none absolute inset-x-0 -top-10 -z-10 h-[28rem]"
           style={{
             background:
-              "repeating-conic-gradient(from 0deg at 50% 38%, rgb(255 255 255 / 0.025) 0deg 6deg, transparent 6deg 14deg), radial-gradient(50% 50% at 50% 38%, rgb(163 230 53 / 0.18), transparent 70%)",
+              "repeating-conic-gradient(from 0deg at 50% 38%, rgb(255 255 255 / 0.025) 0deg 6deg, transparent 6deg 14deg), radial-gradient(50% 50% at 50% 38%, rgb(151 196 90 / 0.18), transparent 70%)",
             maskImage: "radial-gradient(60% 60% at 50% 40%, #000 30%, transparent 75%)",
           }}
           aria-hidden="true"
         />
-        <OctoMark size={150} id="octo-hero" animated className="drop-shadow-[0_18px_30px_rgb(163_230_53/0.35)]" />
+        <OctoMark size={150} id="octo-hero" animated className="drop-shadow-[0_18px_30px_rgb(151_196_90/0.35)]" />
         <p className="mt-6 text-sm font-bold uppercase tracking-[0.2em] text-accent">{t.home.heroKicker}</p>
         <h1 className="mt-3 max-w-3xl">
           {t.home.heroTitle}{" "}

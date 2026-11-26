@@ -76,7 +76,7 @@ export function AuthButton() {
                 {t.nav.profile}
               </Link>
             </Popover.Close>
-            <button type="button" onClick={signOutUser} className={cn(btn.base, btn.subtle, "min-h-10 text-sm")}>
+            <button type="button" onClick={signOutUser} className={cn(btn.base, btn.secondary, "min-h-10 text-sm")}>
               {t.auth.signOut}
             </button>
           </div>

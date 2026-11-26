@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   const admin = getAdmin();
   if (!admin.ok) {
     console.error("[api/progress] Admin SDK unavailable:", admin.reason);
-    return Response.json({ error: "Progress sync is not configured", reason: admin.reason }, { status: 503 });
+    return Response.json({ error: "Progress sync is not configured" }, { status: 503 });
   }
 
   const token = request.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     // Log only the reason code (e.g. auth/argument-error for a project mismatch), never the token.
     const reason = (e as { code?: string }).code ?? (e as Error).message;
     console.warn("[api/progress] ID token rejected:", reason);
-    return Response.json({ error: "Unauthorized", reason }, { status: 401 });
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   let action: ProgressAction | null = null;
@@ -94,10 +94,9 @@ export async function POST(request: Request) {
       return next;
     });
   } catch (e) {
-    // Firestore errors (e.g. database not created, permission) carry no secrets.
-    const reason = (e as Error).message;
-    console.error("[api/progress] Firestore write failed:", reason);
-    return Response.json({ error: "Progress write failed", reason }, { status: 500 });
+    // Details go to the server log only; the client gets a generic error.
+    console.error("[api/progress] Firestore write failed:", (e as Error).message);
+    return Response.json({ error: "Progress write failed" }, { status: 500 });
   }
 
   return Response.json({ state: stored });

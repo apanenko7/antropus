@@ -21,9 +21,7 @@ export function ProfileView({ modules }: { modules: ModuleInfo[] }) {
   const { t } = useApp();
   const p = useProgress();
   const { user, deleteAccount } = useAuth();
-  // Reset is guest-only: a signed-in account's progress lives on the server.
-  const [confirm, setConfirm] = useState(false);
-  const [deleteState, setDeleteState] = useState<"idle" | "confirm" | "deleting" | "failed">("idle");
+  // Reset is guest-only: a signed-in account's progress lives on the server; signed-in users get account deletion instead.
   const lv = level(p.xp);
   const lessonsDone = Object.keys(p.lessons).length;
   const quizzesOk = Object.values(p.quizzes).filter(Boolean).length;
@@ -116,46 +114,94 @@ export function ProfileView({ modules }: { modules: ModuleInfo[] }) {
         </ul>
       </MotionConfig>
 
-      {!user ? <p className="mt-10 text-sm text-muted">{t.profile.guestNote}</p> : null}
       {!user ? (
-        <button
-          type="button"
-          className={cn(btn.base, confirm ? "bg-danger text-bg" : btn.subtle, "mt-3 px-4")}
-          onClick={() => {
-            if (confirm) {
+        <div className="mt-10">
+          <p className="text-sm text-muted">{t.profile.guestNote}</p>
+          <ConfirmAction
+            label={t.profile.reset}
+            warning={t.profile.resetConfirm}
+            confirmLabel={t.profile.resetYes}
+            cancelLabel={t.profile.cancel}
+            onConfirm={async () => {
               progress.reset();
-              setConfirm(false);
-            } else setConfirm(true);
-          }}
-          onBlur={() => setConfirm(false)}
-        >
-          {confirm ? t.profile.resetConfirm : t.profile.reset}
-        </button>
-      ) : null}
-
-      {user ? (
+              return true;
+            }}
+          />
+        </div>
+      ) : (
         <div className="mt-12 border-t border-line/60 pt-6">
           <p className="text-sm text-muted">{t.profile.deleteNote}</p>
-          <button
-            type="button"
-            disabled={deleteState === "deleting"}
-            className={cn(btn.base, deleteState === "confirm" ? "bg-danger text-bg" : btn.subtle, "mt-3 px-4")}
-            onClick={async () => {
-              if (deleteState !== "confirm") return setDeleteState("confirm");
-              setDeleteState("deleting");
-              setDeleteState((await deleteAccount()) ? "idle" : "failed");
-            }}
-            onBlur={() => setDeleteState(s => (s === "confirm" ? "idle" : s))}
-          >
-            {deleteState === "confirm" ? t.profile.deleteConfirm : deleteState === "deleting" ? t.profile.deleting : t.profile.deleteAccount}
-          </button>
-          {deleteState === "failed" ? (
-            <p role="alert" className="mt-2 text-sm text-danger">
-              {t.profile.deleteFailed}
-            </p>
-          ) : null}
+          <ConfirmAction
+            label={t.profile.deleteAccount}
+            warning={t.profile.deleteConfirm}
+            confirmLabel={t.profile.deleteYes}
+            busyLabel={t.profile.deleting}
+            cancelLabel={t.profile.cancel}
+            failedText={t.profile.deleteFailed}
+            onConfirm={deleteAccount}
+          />
         </div>
-      ) : null}
+      )}
     </>
+  );
+}
+
+/** Destructive action in two explicit steps: the button, then a warning with "confirm" and "cancel". */
+function ConfirmAction({
+  label,
+  warning,
+  confirmLabel,
+  cancelLabel,
+  busyLabel,
+  failedText,
+  onConfirm,
+}: {
+  label: string;
+  warning: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  busyLabel?: string;
+  failedText?: string;
+  onConfirm: () => Promise<boolean>;
+}) {
+  const [state, setState] = useState<"idle" | "confirm" | "busy" | "failed">("idle");
+
+  if (state === "idle" || state === "failed") {
+    return (
+      <>
+        <button type="button" className={cn(btn.base, btn.danger, "mt-3 px-4")} onClick={() => setState("confirm")}>
+          {label}
+        </button>
+        {state === "failed" && failedText ? (
+          <p role="alert" className="mt-2 text-sm text-danger">
+            {failedText}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl border border-danger/40 bg-danger-soft p-4">
+      <p role="alert" className="text-sm font-semibold text-danger">
+        {warning}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={state === "busy"}
+          className={cn(btn.base, btn.dangerSolid, "px-4")}
+          onClick={async () => {
+            setState("busy");
+            setState((await onConfirm()) ? "idle" : "failed");
+          }}
+        >
+          {state === "busy" && busyLabel ? busyLabel : confirmLabel}
+        </button>
+        <button type="button" disabled={state === "busy"} className={cn(btn.base, btn.secondary, "px-4")} onClick={() => setState("idle")}>
+          {cancelLabel}
+        </button>
+      </div>
+    </div>
   );
 }
